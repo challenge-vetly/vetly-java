@@ -28,7 +28,7 @@ public class Veterinario {
     @Column(name = "flg_atv_veterinario")
     private boolean isAtivo;
 
-    @Column(unique = true, nullable = false)
+    @Column(name = "em_veterinario", unique = true, nullable = false)
     private String email;
 
     @Column(name = "uf_atuacao", nullable = false)
