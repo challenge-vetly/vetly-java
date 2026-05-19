@@ -2,39 +2,52 @@ package com.petly.petly_java.model;
 
 import jakarta.persistence.*;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
 @Table(name = "tb_animal")
 public class Animal {
     @Id
+    @Column(name = "ID_ANIMAL")
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "id_animal", nullable = false)
     private UUID id;
 
-    @Column(name = "nm_animal", nullable = false)
+    @Column(name = "NM_ANIMAL", nullable = false, length = 80)
     private String nome;
 
-    @Column(name = "esp_animal", nullable = false)
-    @Enumerated(EnumType.STRING)
-    private Especie especie;
-
-    @Column(name = "rc_animal", nullable = false)
+    @Column(name = "RC_ANIMAL", nullable = false, length = 80)
     private String raca;
 
-    @Column(name = "idd_animal", nullable = false)
-    private int idade;
+    @Column(name = "SX_ANIMAL", nullable = false, length = 1)
+    @Enumerated(EnumType.STRING)
+    private Sexo sexo;
 
-    @OneToOne
-    private Prontuario prontuario;
+    @Column(name = "DT_NASC_ANIMAL")
+    private LocalDate dataNascimento;
 
-    public Animal(UUID id, String nome, Especie especie, String raca, int idade, Prontuario prontuario) {
+    @Column(name = "NR_PESO_ANIMAL", nullable = false, precision = 5, scale = 2)
+    private BigDecimal peso;
+
+    @ManyToOne
+    @JoinColumn(name = "TB_TUTOR_ID_TUTOR", nullable = false)
+    private Tutor tutor;
+
+    @ManyToOne
+    @JoinColumn(name = "TB_ESPECIE_ID_ESPECIE", nullable = false)
+    private Especie especie;
+
+
+    public Animal(UUID id, String nome, String raca, Sexo sexo, LocalDate dataNascimento, BigDecimal peso, Tutor tutor, Especie especie) {
         this.id = id;
         this.nome = nome;
-        this.especie = especie;
         this.raca = raca;
-        this.idade = idade;
-        this.prontuario = prontuario;
+        this.sexo = sexo;
+        this.dataNascimento = dataNascimento;
+        this.peso = peso;
+        this.tutor = tutor;
+        this.especie = especie;
     }
 
     public UUID getId() {
@@ -53,14 +66,6 @@ public class Animal {
         this.nome = nome;
     }
 
-    public Especie getEspecie() {
-        return especie;
-    }
-
-    public void setEspecie(Especie especie) {
-        this.especie = especie;
-    }
-
     public String getRaca() {
         return raca;
     }
@@ -69,19 +74,43 @@ public class Animal {
         this.raca = raca;
     }
 
-    public int getIdade() {
-        return idade;
+    public Sexo getSexo() {
+        return sexo;
     }
 
-    public void setIdade(int idade) {
-        this.idade = idade;
+    public void setSexo(Sexo sexo) {
+        this.sexo = sexo;
     }
 
-    public Prontuario getProntuario() {
-        return prontuario;
+    public LocalDate getDataNascimento() {
+        return dataNascimento;
     }
 
-    public void setProntuario(Prontuario prontuario) {
-        this.prontuario = prontuario;
+    public void setDataNascimento(LocalDate dataNascimento) {
+        this.dataNascimento = dataNascimento;
+    }
+
+    public BigDecimal getPeso() {
+        return peso;
+    }
+
+    public void setPeso(BigDecimal peso) {
+        this.peso = peso;
+    }
+
+    public Tutor getTutor() {
+        return tutor;
+    }
+
+    public void setTutor(Tutor tutor) {
+        this.tutor = tutor;
+    }
+
+    public Especie getEspecie() {
+        return especie;
+    }
+
+    public void setEspecie(Especie especie) {
+        this.especie = especie;
     }
 }

@@ -2,28 +2,29 @@ package com.petly.petly_java.model;
 
 import jakarta.persistence.*;
 
-import java.time.LocalDateTime;
-import java.util.List;
+import java.time.LocalDate;
 import java.util.UUID;
 
-
 @Entity
+@Table(name = "TB_PRONTUARIO")
 public class Prontuario {
-    // Prontuario eh um historico/sumario do animal, por isso tem uma lista de evolucaoCLinica e relacao 1-1 com o animal
+
     @Id
-    @GeneratedValue
+    @Column(name = "ID_PRONTUARIO")
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @Column(name = "DT_UPD_PRONTURARIO", nullable = false)
+    private LocalDate dataUltimaAtualizacao;
+
     @OneToOne
+    @JoinColumn(name = "TB_ANIMAL_ID_ANIMAL", nullable = false, unique = true)
     private Animal animal;
 
-    @OneToMany(mappedBy = "prontuario")
-    private List<EvolucaoClinica> evolucoes;
-
-    public Prontuario(UUID id, Animal animal, List<EvolucaoClinica> evolucoes) {
+    public Prontuario(UUID id, LocalDate dataUltimaAtualizacao, Animal animal) {
         this.id = id;
+        this.dataUltimaAtualizacao = dataUltimaAtualizacao;
         this.animal = animal;
-        this.evolucoes = evolucoes;
     }
 
     public UUID getId() {
@@ -34,6 +35,14 @@ public class Prontuario {
         this.id = id;
     }
 
+    public LocalDate getDataUltimaAtualizacao() {
+        return dataUltimaAtualizacao;
+    }
+
+    public void setDataUltimaAtualizacao(LocalDate dataUltimaAtualizacao) {
+        this.dataUltimaAtualizacao = dataUltimaAtualizacao;
+    }
+
     public Animal getAnimal() {
         return animal;
     }
@@ -41,13 +50,4 @@ public class Prontuario {
     public void setAnimal(Animal animal) {
         this.animal = animal;
     }
-
-    public List<EvolucaoClinica> getEvolucoes() {
-        return evolucoes;
-    }
-
-    public void setEvolucoes(List<EvolucaoClinica> evolucoes) {
-        this.evolucoes = evolucoes;
-    }
 }
-

@@ -2,33 +2,47 @@ package com.petly.petly_java.model;
 
 import jakarta.persistence.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
+@Table(name = "TB_CONSULTA")
 public class Consulta {
-
     @Id
-    @GeneratedValue
+    @Column(name = "ID_CONSULTA")
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @ManyToOne
-    private Animal animal;
-
-    @ManyToOne
-    private Veterinario veterinario;
-
+    @Column(name = "DT_HR_CONSULTA", nullable = false)
     private LocalDateTime dataHora;
 
-    @OneToOne
-    private EvolucaoClinica evolucaoClinica; // A consulta gera uma evolucao clinica, com as anotacoes do medico
+    @Column(name = "ST_CONSULTA", nullable = false, length = 20)
+    @Enumerated(EnumType.STRING)
+    private StatusConsulta status;
 
-    public Consulta(UUID id, Animal animal, Veterinario veterinario, LocalDateTime dataHora, EvolucaoClinica evolucaoClinica) {
+    @Column(name = "VL_CONSULTA", nullable = false, precision = 10, scale = 2)
+    private BigDecimal valor;
+
+    @Column(name = "OBS_CONSULTA", length = 500)
+    private String observacao;
+
+    @ManyToOne
+    @JoinColumn(name = "TB_VETERINARIO_ID_VETERINARIO")
+    private Veterinario veterinario;
+
+    @ManyToOne
+    @JoinColumn(name = "TB_ANIMAL_ID_ANIMAL")
+    private Animal animal;
+
+    public Consulta(UUID id, LocalDateTime dataHora, StatusConsulta status, BigDecimal valor, String observacao, Veterinario veterinario, Animal animal) {
         this.id = id;
-        this.animal = animal;
-        this.veterinario = veterinario;
         this.dataHora = dataHora;
-        this.evolucaoClinica = evolucaoClinica;
+        this.status = status;
+        this.valor = valor;
+        this.observacao = observacao;
+        this.veterinario = veterinario;
+        this.animal = animal;
     }
 
     public UUID getId() {
@@ -39,12 +53,36 @@ public class Consulta {
         this.id = id;
     }
 
-    public Animal getAnimal() {
-        return animal;
+    public LocalDateTime getDataHora() {
+        return dataHora;
     }
 
-    public void setAnimal(Animal animal) {
-        this.animal = animal;
+    public void setDataHora(LocalDateTime dataHora) {
+        this.dataHora = dataHora;
+    }
+
+    public StatusConsulta getStatus() {
+        return status;
+    }
+
+    public void setStatus(StatusConsulta status) {
+        this.status = status;
+    }
+
+    public BigDecimal getValor() {
+        return valor;
+    }
+
+    public void setValor(BigDecimal valor) {
+        this.valor = valor;
+    }
+
+    public String getObservacao() {
+        return observacao;
+    }
+
+    public void setObservacao(String observacao) {
+        this.observacao = observacao;
     }
 
     public Veterinario getVeterinario() {
@@ -55,19 +93,11 @@ public class Consulta {
         this.veterinario = veterinario;
     }
 
-    public LocalDateTime getDataHora() {
-        return dataHora;
+    public Animal getAnimal() {
+        return animal;
     }
 
-    public void setDataHora(LocalDateTime dataHora) {
-        this.dataHora = dataHora;
-    }
-
-    public EvolucaoClinica getEvolucaoClinica() {
-        return evolucaoClinica;
-    }
-
-    public void setEvolucaoClinica(EvolucaoClinica evolucaoClinica) {
-        this.evolucaoClinica = evolucaoClinica;
+    public void setAnimal(Animal animal) {
+        this.animal = animal;
     }
 }

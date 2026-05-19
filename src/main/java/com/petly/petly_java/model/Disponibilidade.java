@@ -9,14 +9,4 @@ import java.util.UUID;
 @Entity
 public class Disponibilidade {
 
-    @Id
-    @GeneratedValue
-    private UUID id;
-
-    @Enumerated(EnumType.STRING)
-    private DayOfWeek diaSemana;
-
-    private LocalTime inicio;
-
-    private LocalTime fim;
 }

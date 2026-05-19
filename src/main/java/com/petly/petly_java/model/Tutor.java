@@ -5,28 +5,26 @@ import jakarta.persistence.*;
 import java.util.UUID;
 
 @Entity
-@Table(name = "tb_tutor")
+@Table(name = "TB_TUTOR")
 public class Tutor {
+
     @Id
+    @Column(name = "ID_TUTOR")
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "id", nullable = false, unique = true)
     private UUID id;
 
-    @Column(name = "nm_tutor", nullable = false)
-    private String nome;
-    @Column(name = "cpf_tutor", nullable = false, unique = true)
-    private String cpf;
-    @Column(name = "em_tutor", nullable = false)
-    private String email;
+    @OneToOne
+    @JoinColumn(name = "TB_USUARIO_ID_USUARIO", nullable = false)
+    private Usuario usuario;
 
+    @OneToOne
+    @JoinColumn(name = "TB_PESSOA_ID_PESSOA", nullable = false)
+    private Pessoa pessoa;
 
-    // TO-DO: Relacionar com pet
-
-    public Tutor(UUID id, String nome, String cpf, String email) {
+    public Tutor(UUID id, Usuario usuario, Pessoa pessoa) {
         this.id = id;
-        this.nome = nome;
-        this.cpf = cpf;
-        this.email = email;
+        this.usuario = usuario;
+        this.pessoa = pessoa;
     }
 
     public UUID getId() {
@@ -37,27 +35,19 @@ public class Tutor {
         this.id = id;
     }
 
-    public String getNome() {
-        return nome;
+    public Usuario getUsuario() {
+        return usuario;
     }
 
-    public void setNome(String nome) {
-        this.nome = nome;
+    public void setUsuario(Usuario usuario) {
+        this.usuario = usuario;
     }
 
-    public String getCpf() {
-        return cpf;
+    public Pessoa getPessoa() {
+        return pessoa;
     }
 
-    public void setCpf(String cpf) {
-        this.cpf = cpf;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
+    public void setPessoa(Pessoa pessoa) {
+        this.pessoa = pessoa;
     }
 }

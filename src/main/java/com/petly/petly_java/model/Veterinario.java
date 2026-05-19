@@ -4,60 +4,36 @@ import jakarta.persistence.*;
 import java.util.List;
 import java.util.UUID;
 
-@Entity
-@Table(name = "TB_VETERINARIO")
 public class Veterinario {
 
     @Id
-    @GeneratedValue
-    @Column(name = "id_veterinario")
+    @Column(name = "ID_VETERINARIO")
     private UUID id;
 
-    @Column(name = "nm_veterinario", nullable = false)
-    private String nome;
-
-    @Column(name = "crmv_veterinario", unique = true, nullable = false)
+    @Column(name = "CRMV_VETERINARIO", nullable = false, unique = true, length = 20)
     private String crmv;
 
-    @Column(name = "cpf_veterinario", unique = true, nullable = false)
-    private String cpf;
+    @OneToOne
+    @JoinColumn(name = "TB_USUARIO_ID_USUARIO", nullable = false)
+    private Usuario usuario;
 
-    @Column(name = "telefone")
-    private String telefone;
+    @OneToOne
+    @JoinColumn(name = "TB_PESSOA_ID_PESSOA", nullable = false)
+    private Pessoa pessoa;
 
-    @Column(name = "flg_atv_veterinario")
-    private boolean isAtivo;
+    @OneToMany(mappedBy = "veterinario", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<VeterinarioEspecialidade> especialidades;
 
-    @Column(name = "em_veterinario", unique = true, nullable = false)
-    private String email;
+    @OneToMany(mappedBy = "veterinario", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<VeterinarioEspecie> especies;
 
-    @Column(name = "uf_atuacao", nullable = false)
-    @Enumerated(EnumType.STRING)
-    private UF ufAtuacao;
-
-    @Column(name = "espec_veterinario", nullable = false)
-    @Enumerated(EnumType.STRING)
-    private List<Especialidade> especialidades;
-
-    @Column(name = "esp_atend_veterinario", nullable = false)
-    @Enumerated(EnumType.STRING)
-    private List<Especie> especiesAtendidas;
-
-    @OneToMany
-    private List<Disponibilidade> disponibilidades;
-
-    public Veterinario(UUID id, String nome, String crmv, String cpf, String telefone, boolean isAtivo, String email, UF ufAtuacao, List<Especialidade> especialidades, List<Especie> especiesAtendidas, List<Disponibilidade> disponibilidades) {
+    public Veterinario(UUID id, String crmv, Usuario usuario, Pessoa pessoa, List<VeterinarioEspecialidade> especialidades, List<VeterinarioEspecie> especies) {
         this.id = id;
-        this.nome = nome;
         this.crmv = crmv;
-        this.cpf = cpf;
-        this.telefone = telefone;
-        this.isAtivo = isAtivo;
-        this.email = email;
-        this.ufAtuacao = ufAtuacao;
+        this.usuario = usuario;
+        this.pessoa = pessoa;
         this.especialidades = especialidades;
-        this.especiesAtendidas = especiesAtendidas;
-        this.disponibilidades = disponibilidades;
+        this.especies = especies;
     }
 
     public UUID getId() {
@@ -68,14 +44,6 @@ public class Veterinario {
         this.id = id;
     }
 
-    public String getNome() {
-        return nome;
-    }
-
-    public void setNome(String nome) {
-        this.nome = nome;
-    }
-
     public String getCrmv() {
         return crmv;
     }
@@ -84,67 +52,35 @@ public class Veterinario {
         this.crmv = crmv;
     }
 
-    public String getCpf() {
-        return cpf;
+    public Usuario getUsuario() {
+        return usuario;
     }
 
-    public void setCpf(String cpf) {
-        this.cpf = cpf;
+    public void setUsuario(Usuario usuario) {
+        this.usuario = usuario;
     }
 
-    public String getTelefone() {
-        return telefone;
+    public Pessoa getPessoa() {
+        return pessoa;
     }
 
-    public void setTelefone(String telefone) {
-        this.telefone = telefone;
+    public void setPessoa(Pessoa pessoa) {
+        this.pessoa = pessoa;
     }
 
-    public boolean isAtivo() {
-        return isAtivo;
-    }
-
-    public void setAtivo(boolean ativo) {
-        isAtivo = ativo;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public UF getUfAtuacao() {
-        return ufAtuacao;
-    }
-
-    public void setUfAtuacao(UF ufAtuacao) {
-        this.ufAtuacao = ufAtuacao;
-    }
-
-    public List<Especialidade> getEspecialidades() {
+    public List<VeterinarioEspecialidade> getEspecialidades() {
         return especialidades;
     }
 
-    public void setEspecialidades(List<Especialidade> especialidades) {
+    public void setEspecialidades(List<VeterinarioEspecialidade> especialidades) {
         this.especialidades = especialidades;
     }
 
-    public List<Especie> getEspeciesAtendidas() {
-        return especiesAtendidas;
+    public List<VeterinarioEspecie> getEspecies() {
+        return especies;
     }
 
-    public void setEspeciesAtendidas(List<Especie> especiesAtendidas) {
-        this.especiesAtendidas = especiesAtendidas;
-    }
-
-    public List<Disponibilidade> getDisponibilidades() {
-        return disponibilidades;
-    }
-
-    public void setDisponibilidades(List<Disponibilidade> disponibilidades) {
-        this.disponibilidades = disponibilidades;
+    public void setEspecies(List<VeterinarioEspecie> especies) {
+        this.especies = especies;
     }
 }

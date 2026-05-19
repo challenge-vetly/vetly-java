@@ -6,25 +6,22 @@ import java.util.UUID;
 
 @Entity
 public class EvolucaoClinica {
-    // Evolucao Clinica tem as anotacoes do medico geradas na consulta
     @Id
-    @GeneratedValue
+    @Column(name = "ID_EVOLUCAO_CLINICA")
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @ManyToOne
-    private Prontuario prontuario;
-
-    @OneToOne
-    private Consulta consulta;
-
-    @Column(length = 10000)
+    @Column(name = "ANT_EVOLUCAO_CLINICA", nullable = false, length = 2000)
     private String anotacoes;
 
-    public EvolucaoClinica(UUID id, Prontuario prontuario, Consulta consulta, String anotacoes) {
+    @OneToOne
+    @JoinColumn(name = "TB_CONSULTA_ID_CONSULTA", nullable = false, unique = true)
+    private Consulta consulta;
+
+    public EvolucaoClinica(UUID id, String anotacoes, Consulta consulta) {
         this.id = id;
-        this.prontuario = prontuario;
-        this.consulta = consulta;
         this.anotacoes = anotacoes;
+        this.consulta = consulta;
     }
 
     public UUID getId() {
@@ -35,12 +32,12 @@ public class EvolucaoClinica {
         this.id = id;
     }
 
-    public Prontuario getProntuario() {
-        return prontuario;
+    public String getAnotacoes() {
+        return anotacoes;
     }
 
-    public void setProntuario(Prontuario prontuario) {
-        this.prontuario = prontuario;
+    public void setAnotacoes(String anotacoes) {
+        this.anotacoes = anotacoes;
     }
 
     public Consulta getConsulta() {
@@ -49,13 +46,5 @@ public class EvolucaoClinica {
 
     public void setConsulta(Consulta consulta) {
         this.consulta = consulta;
-    }
-
-    public String getAnotacoes() {
-        return anotacoes;
-    }
-
-    public void setAnotacoes(String anotacoes) {
-        this.anotacoes = anotacoes;
     }
 }
