@@ -21,7 +21,7 @@ public class Usuario {
     private RoleUsuario role;
 
     @Column(name = "FL_ATV_USUARIO", nullable = false, length = 1)
-    private Character flagAtivo;    @Enumerated(EnumType.STRING)
+    private Character flagAtivo;
 
 
     @Column(name = "SEN_HASH_USUARIO", nullable = false, length = 255)

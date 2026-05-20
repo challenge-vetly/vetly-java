@@ -1,9 +1,13 @@
 package com.petly.petly_java.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.ManyToAny;
+
 import java.util.List;
 import java.util.UUID;
 
+@Entity
+@Table(name = "TB_VETERINARIO")
 public class Veterinario {
 
     @Id

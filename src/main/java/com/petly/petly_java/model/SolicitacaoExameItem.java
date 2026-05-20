@@ -6,6 +6,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+@Entity
+@Table(name = "TB_SOLICITACAO_EXAME_ITEM")
 public class SolicitacaoExameItem {
 
     @Id

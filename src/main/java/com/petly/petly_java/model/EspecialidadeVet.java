@@ -13,9 +13,8 @@ import java.util.UUID;
 public class EspecialidadeVet {
 
     @Id
-    @Column(name = "ID_ESPECIALIDADE_VET")
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    @Column(name = "ID_ESPECIALIDADE_VET", length = 36)
+    private String id;
 
     @Column(name = "NM_ESPECIALIDADE", nullable = false, unique = true, length = 50)
     @Enumerated(EnumType.STRING)
@@ -24,17 +23,21 @@ public class EspecialidadeVet {
     @Column(name = "DS_ESPECIALIDADE", nullable = false, length = 150)
     private String descricao;
 
-    public EspecialidadeVet(UUID id, NomeEspecialidade nome, String descricao) {
+    public EspecialidadeVet(String id, NomeEspecialidade nome, String descricao) {
         this.id = id;
         this.nome = nome;
         this.descricao = descricao;
     }
 
-    public UUID getId() {
+    public EspecialidadeVet() {
+
+    }
+
+    public String getId() {
         return id;
     }
 
-    public void setId(UUID id) {
+    public void setId(String id) {
         this.id = id;
     }
 
