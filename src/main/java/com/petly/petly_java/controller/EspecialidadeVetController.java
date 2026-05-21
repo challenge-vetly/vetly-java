@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/especialidade-veterinario")
+@RequestMapping("/especialidades")
 public class EspecialidadeVetController {
    @Autowired
    private EspecialidadeVetService especialidadeVetService;

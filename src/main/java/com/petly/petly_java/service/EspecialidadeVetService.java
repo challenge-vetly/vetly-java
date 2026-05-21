@@ -28,7 +28,7 @@ public class EspecialidadeVetService {
         this.mapper = mapper;
     }
 
-    public EspecialidadeVet create(@Valid EspecialidadeVetRequest req) {
+    public EspecialidadeVet create(EspecialidadeVetRequest req) {
         EspecialidadeVet especialidadeVet = mapper.especialidadeVetRequestToEspecialidadeVet(req);
 //        System.out.println("ID DO MODEL MAPEADO NO SERVICE.CREATE: " + especialidadeVet.getId());
 //        EspecialidadeVet especialidadeVet = new EspecialidadeVet();
