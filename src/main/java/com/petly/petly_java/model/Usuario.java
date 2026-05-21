@@ -18,7 +18,7 @@ public class Usuario {
 
     @Column(name = "RL_USUARIO", nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
-    private RoleUsuario role;
+    private UserRole role;
 
     @Column(name = "FL_ATV_USUARIO", nullable = false, length = 1)
     private Character flagAtivo;
@@ -27,7 +27,7 @@ public class Usuario {
     @Column(name = "SEN_HASH_USUARIO", nullable = false, length = 255)
     private String senhaHash;
 
-    public Usuario(UUID id, String email, RoleUsuario role, Character flagAtivo, String senhaHash) {
+    public Usuario(String email, UserRole role, Character flagAtivo, String senhaHash) {
         this.id = id;
         this.email = email;
         this.role = role;
@@ -51,11 +51,11 @@ public class Usuario {
         this.email = email;
     }
 
-    public RoleUsuario getRole() {
+    public UserRole getRole() {
         return role;
     }
 
-    public void setRole(RoleUsuario role) {
+    public void setRole(UserRole role) {
         this.role = role;
     }
 

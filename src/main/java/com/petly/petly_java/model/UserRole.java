@@ -1,5 +1,5 @@
 package com.petly.petly_java.model;
 
-public enum RoleUsuario {
+public enum UserRole {
     ADMIN, TUTOR, VETERINARIO
 }
