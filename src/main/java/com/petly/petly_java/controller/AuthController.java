@@ -52,4 +52,5 @@ public class AuthController {
         usuarioRepository.save(novoUsuario);
         return ResponseEntity.ok().build();
     }
+
 }
