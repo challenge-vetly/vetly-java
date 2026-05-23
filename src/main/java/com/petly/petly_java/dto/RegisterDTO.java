@@ -1,16 +1,17 @@
 package com.petly.petly_java.dto;
 
 import com.petly.petly_java.model.UserRole;
+import com.petly.petly_java.validation.ValueOfEnum;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 
 public record RegisterDTO(
-        @NotBlank(message = "O email é obrigatório")
+        @NotBlank(message = "nao pode ser vazio")
         @Email(message = "Email inválido")
         String email,
-        @NotBlank(message = "A senha é obrigatória")
+        @NotBlank(message = "nao pode ser vazio")
         @Pattern(
                 regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$",
                 message = """
@@ -23,6 +24,7 @@ public record RegisterDTO(
             """
         )
         String senha,
-        @NotNull(message = "Role obrigatoria")
-        UserRole role) {
+        @NotNull(message = "nao pode ser vazio")
+        @ValueOfEnum(enumClass = UserRole.class)
+        String role) {
 }

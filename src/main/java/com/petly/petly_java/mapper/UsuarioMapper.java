@@ -3,6 +3,7 @@ package com.petly.petly_java.mapper;
 import com.petly.petly_java.dto.RegisterDTO;
 import com.petly.petly_java.dto.UsuarioDTO;
 import com.petly.petly_java.dto.UsuarioResponse;
+import com.petly.petly_java.model.UserRole;
 import com.petly.petly_java.model.Usuario;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +17,6 @@ public class UsuarioMapper {
 
     public Usuario usuarioDTOToUsuario(UsuarioDTO usuarioDTO) {
         String id = UUID.randomUUID().toString();
-        return new Usuario(id, usuarioDTO.email(), usuarioDTO.role(), usuarioDTO.flagAtivo(), usuarioDTO.senha());
+        return new Usuario(id, usuarioDTO.email(), UserRole.valueOf(usuarioDTO.role()), usuarioDTO.flagAtivo(), usuarioDTO.senha());
     }
 }
