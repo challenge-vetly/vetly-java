@@ -16,8 +16,7 @@ public class Usuario implements UserDetails {
 
     @Id
     @Column(name = "ID_USUARIO")
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    private String id;
 
     @Column(name = "EM_USUARIO", nullable = false, unique = true, length = 255)
     private String email;
@@ -27,13 +26,13 @@ public class Usuario implements UserDetails {
     private UserRole role;
 
     @Column(name = "FL_ATV_USUARIO", nullable = false, length = 1)
-    private Character flagAtivo;
+    private String flagAtivo;
 
 
     @Column(name = "SEN_HASH_USUARIO", nullable = false, length = 255)
     private String senhaHash;
 
-    public Usuario(String email, UserRole role, Character flagAtivo, String senhaHash) {
+    public Usuario(String id, String email, UserRole role, String flagAtivo, String senhaHash) {
         this.id = id;
         this.email = email;
         this.role = role;
@@ -44,11 +43,11 @@ public class Usuario implements UserDetails {
     public Usuario() {
     }
 
-    public UUID getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(UUID id) {
+    public void setId(String id) {
         this.id = id;
     }
 
@@ -68,11 +67,11 @@ public class Usuario implements UserDetails {
         this.role = role;
     }
 
-    public Character getFlagAtivo() {
+    public String getFlagAtivo() {
         return flagAtivo;
     }
 
-    public void setFlagAtivo(Character flagAtivo) {
+    public void setFlagAtivo(String flagAtivo) {
         this.flagAtivo = flagAtivo;
     }
 

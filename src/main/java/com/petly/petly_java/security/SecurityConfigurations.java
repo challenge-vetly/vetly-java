@@ -18,11 +18,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 public class SecurityConfigurations {
     private static final String[] PUBLIC_GET = {
-            "/especies", "/especialidades", "/racas"
+            "/especies", "/especialidades"
     };
 
     private static final String[] ADMIN_RESOURCES = {
-            "/especies", "/especialidades", "/racas"
+            "/especies", "/especialidades", "/usuarios"
     };
 
     @Autowired
