@@ -15,8 +15,14 @@ import java.util.List;
 @RestController
 @RequestMapping("/especies")
 public class EspecieController {
+    private final EspecieService especieService;
+
+    public EspecieController(EspecieService especieService) {
+        this.especieService = especieService;
+    }
+
     @Autowired
-    private EspecieService especieService;
+
 
     @PostMapping
     public ResponseEntity<Especie> createEspecie(@Valid @RequestBody EspecieRequest request){

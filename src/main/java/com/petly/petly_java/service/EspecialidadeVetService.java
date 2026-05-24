@@ -23,7 +23,8 @@ public class EspecialidadeVetService {
     private final EspecialidadeVetMapper mapper;
 
     @Autowired
-    public EspecialidadeVetService(EspecialidadeVetRepository especialidadeVetRepository, EspecialidadeVetMapper especialidadeVetMapper, EspecialidadeVetMapper mapper) {
+    public EspecialidadeVetService(EspecialidadeVetRepository especialidadeVetRepository,
+                                   EspecialidadeVetMapper mapper) {
         this.especialidadeVetRepository = especialidadeVetRepository;
         this.mapper = mapper;
     }

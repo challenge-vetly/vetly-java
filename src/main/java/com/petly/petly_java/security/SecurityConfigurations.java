@@ -18,6 +18,15 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableWebSecurity
 public class SecurityConfigurations {
+    private SecurityFilter securityFilter;
+
+    public SecurityConfigurations(SecurityFilter securityFilter) {
+        this.securityFilter = securityFilter;
+    }
+
+    @Autowired
+
+
     private static final String[] PUBLIC_GET = {
             "/especies", "/especialidades"
     };
@@ -25,9 +34,6 @@ public class SecurityConfigurations {
     private static final String[] ADMIN_RESOURCES = {
             "/especies", "/especialidades", "/usuarios"
     };
-
-    @Autowired
-    private SecurityFilter securityFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) {

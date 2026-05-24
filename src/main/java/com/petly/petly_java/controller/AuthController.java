@@ -24,17 +24,18 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/auth")
 public class AuthController {
     private final UsuarioRepository usuarioRepository;
-    @Autowired
-    private AuthenticationManager authenticationManager;
-    @Autowired
-    private TokenService tokenService;
-    @Autowired
-    private UsuarioService usuarioService;
-    @Autowired
-    private AuthService authService;
+    private final AuthenticationManager authenticationManager;
+    private final TokenService tokenService;
+    private final UsuarioService usuarioService;
+    private final AuthService authService;
 
-    public AuthController(UsuarioRepository usuarioRepository) {
+    public AuthController(UsuarioRepository usuarioRepository, AuthenticationManager authenticationManager,
+                          TokenService tokenService, UsuarioService usuarioService, AuthService authService) {
         this.usuarioRepository = usuarioRepository;
+        this.authenticationManager = authenticationManager;
+        this.tokenService = tokenService;
+        this.usuarioService = usuarioService;
+        this.authService = authService;
     }
 
     @PostMapping("/login")

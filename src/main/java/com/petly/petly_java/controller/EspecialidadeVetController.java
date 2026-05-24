@@ -19,8 +19,14 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/especialidades")
 public class EspecialidadeVetController {
+   private final EspecialidadeVetService especialidadeVetService;
+
+   public EspecialidadeVetController(EspecialidadeVetService especialidadeVetService) {
+      this.especialidadeVetService = especialidadeVetService;
+   }
+
    @Autowired
-   private EspecialidadeVetService especialidadeVetService;
+
 
    @PostMapping
     public ResponseEntity<EspecialidadeVet> createEspecialidadeVet(@Valid @RequestBody EspecialidadeVetRequest req) {

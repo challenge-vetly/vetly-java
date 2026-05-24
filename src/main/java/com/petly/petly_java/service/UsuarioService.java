@@ -16,10 +16,15 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class UsuarioService {
+    private final UsuarioRepository usuarioRepository;
+    private final UsuarioMapper mapper;
+
     @Autowired
-    private UsuarioRepository usuarioRepository;
-    @Autowired
-    private UsuarioMapper mapper;
+    public UsuarioService(UsuarioRepository usuarioRepository, UsuarioMapper mapper) {
+        this.mapper = mapper;
+        this.usuarioRepository = usuarioRepository;
+    }
+
     public UsuarioResponse create(UsuarioDTO usuarioDTO) {
         Usuario usuario = mapper.usuarioDTOToUsuario(usuarioDTO);
         usuario.setSenhaHash(new BCryptPasswordEncoder().encode(usuarioDTO.senha()));

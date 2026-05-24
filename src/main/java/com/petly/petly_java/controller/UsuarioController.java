@@ -20,8 +20,14 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/usuarios")
 public class UsuarioController {
+    private final UsuarioService usuarioService;
+
+    public UsuarioController(UsuarioService usuarioService) {
+        this.usuarioService = usuarioService;
+    }
+
     @Autowired
-    private UsuarioService usuarioService;
+
 
     @PostMapping
     public ResponseEntity<UsuarioResponse> createUsuario(@Valid @RequestBody UsuarioDTO usuarioDTO) {
