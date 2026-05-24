@@ -25,19 +25,20 @@ public class SecurityConfigurations {
         this.securityFilter = securityFilter;
     }
 
-    private static final String[] PUBLIC_GET = {
-            "/especies", "/especialidades"
-    };
-
-    private static final String[] ADMIN_RESOURCES = {
-            "/especies", "/especialidades", "/usuarios"
-    };
-
     private static final String[] SWAGGER_WHITELIST = {
+            "/swagger-ui",
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/v3/api-docs/**",
             "/v3/api-docs.yaml"
+    };
+
+    private static final String[] PUBLIC_GET = {
+            "/especies", "/especialidades", "/veterinarios", "/veterinarios/**"
+    };
+
+    private static final String[] ADMIN_RESOURCES = {
+            "/especies", "/especialidades", "/usuarios"
     };
 
     @Bean
@@ -45,7 +46,7 @@ public class SecurityConfigurations {
         return httpSecurity
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session ->
-                            session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth ->
                         auth
                                 .requestMatchers(SWAGGER_WHITELIST).permitAll()

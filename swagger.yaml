@@ -664,10 +664,21 @@ paths:
 
     get:
       tags: [Especialidades]
-      summary: Listar especialidades (paginado)
+      summary: Listar especialidades (paginado, com filtros opcionais)
       description: |
         Retorna página de especialidades ordenada por nome. **Endpoint público**.
         Tamanho de página fixo em 2 registros.
+
+        Os parâmetros `nome` e `descricao` são opcionais e combináveis entre si.
+        A busca é **case-insensitive** e por **trecho** (contém), usando JPQL com `LIKE`.
+
+        | Exemplo | Resultado |
+        |---------|-----------|
+        | `GET /especialidades` | Todos, paginado |
+        | `GET /especialidades?nome=cardio` | Contém "cardio" no nome |
+        | `GET /especialidades?descricao=coracao` | Contém "coracao" na descrição |
+        | `GET /especialidades?nome=cardio&descricao=animal` | Ambos os filtros aplicados |
+        | `GET /especialidades?nome=cardio&pageNumber=1` | Filtro + segunda página |
       security: []
       parameters:
         - name: pageNumber
@@ -677,6 +688,20 @@ paths:
             default: 0
             minimum: 0
           description: Número da página (base 0)
+        - name: nome
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Trecho do nome da especialidade (case-insensitive). Ex.:  `cardio`, `CIRUR`
+          example: cardio
+        - name: descricao
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Trecho da descrição da especialidade (case-insensitive). Ex.: `coração`, `animais`
+          example: coração
       responses:
         '200':
           description: Página de especialidades com links HATEOAS
@@ -685,7 +710,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/PageEspecialidadeVetLista'
         '404':
-          description: Nenhuma especialidade encontrada
+          description: Nenhuma especialidade encontrada para os filtros informados
 
   /especialidades/{id}:
     get:

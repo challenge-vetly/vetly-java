@@ -26,8 +26,6 @@ public class EspecialidadeVetController {
       this.especialidadeVetService = especialidadeVetService;
    }
 
-
-
    @PostMapping
     public ResponseEntity<EspecialidadeVet> createEspecialidadeVet(@Valid @RequestBody EspecialidadeVetRequest req) {
        EspecialidadeVet especialidadeVet = especialidadeVetService.create(req);

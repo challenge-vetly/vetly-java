@@ -26,7 +26,7 @@ O backend Vetly implementa as entidades centrais do domínio e uma camada de API
 - **Autenticação** com JWT — login, registro de veterinários e administradores
 - **Gestão de Usuários** — CRUD paginado com controle de papéis (ADMIN / VETERINÁRIO / TUTOR)
 - **Espécies** — cadastro e listagem das espécies de animais atendidas
-- **Especialidades Veterinárias** — cadastro e listagem paginada com links HATEOAS
+- **Especialidades Veterinárias** — cadastro, listagem paginada com links HATEOAS e busca por filtros (`nome`, `descricao`)
 - **Modelo de domínio completo** — entidades mapeadas com JPA para: Animal, Consulta, Prontuário, Evolução Clínica, Solicitação de Exame, Tutor, Veterinário e demais tabelas auxiliares
 
 ---
@@ -315,10 +315,28 @@ Consulta
 | Método | Endpoint | Acesso | Descrição |
 |--------|----------|--------|-----------|
 | `POST` | `/especialidades` | ADMIN | Cria especialidade |
-| `GET` | `/especialidades` | Público | Lista paginada (2/pág, ordenado por nome) com HATEOAS |
+| `GET` | `/especialidades` | Público | Lista paginada (2/pág, ordenado por nome) com HATEOAS e filtros opcionais |
 | `GET` | `/especialidades/{id}` | Público | Busca por ID |
 | `PUT` | `/especialidades` | ADMIN | Atualiza especialidade (ID no corpo) |
 | `DELETE` | `/especialidades/{id}` | ADMIN | Remove especialidade |
+
+#### Parâmetros de busca — `GET /especialidades`
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| `pageNumber` | integer | não (padrão: `0`) | Página (base 0, 2 registros por página) |
+| `nome` | string | não | Trecho do nome da especialidade — case-insensitive |
+| `descricao` | string | não | Trecho da descrição — case-insensitive |
+
+Os filtros são combináveis. A busca usa JPQL com `LIKE` sobre os dois campos simultaneamente.
+
+```
+GET /especialidades                            → lista todos
+GET /especialidades?nome=cardio                → nome contém "cardio"
+GET /especialidades?descricao=coracao          → descrição contém "coracao"
+GET /especialidades?nome=cardio&descricao=animal → ambos os filtros
+GET /especialidades?nome=cardio&pageNumber=1   → filtro + segunda página
+```
 
 ---
 
@@ -423,7 +441,6 @@ Depois acesse: `http://localhost:8080/swagger-ui.html`
 ## Roadmap
 
 ### Em desenvolvimento
-- [ ] Analise de prontuario com Inteligencia Artificial
 - [ ] `Disponibilidade` — modelo de grade horária do veterinário (entidade criada, sem campos)
 - [ ] Registro de Tutor (`/auth/register/tutor`) — código comentado em `AuthService`
 
