@@ -40,7 +40,8 @@ public class EspecieController {
 
     @GetMapping
     public ResponseEntity<List<Especie>> readEspecie() { // Nao usamos paginacao aqui pq a ideia e ter um numero fixo de especies
-        return new ResponseEntity<>(especieService.read(), HttpStatus.OK);
+        var especies = especieService.read();
+        return new ResponseEntity<>(especies, HttpStatus.OK);
     }
 
     @PutMapping

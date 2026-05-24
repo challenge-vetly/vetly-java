@@ -45,9 +45,6 @@ public class EspecialidadeVetController {
    public ResponseEntity<Page<EspecialidadeVetLista>> readEspecialidadeVet(@RequestParam(defaultValue = "0") Integer pageNumber) {
       Pageable pageable = PageRequest.of(pageNumber, 2, Sort.by("nome").ascending());
       Page<EspecialidadeVetLista> especialidadeVets = especialidadeVetService.read(pageable);
-      if (especialidadeVets.isEmpty()) {
-         return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-      }
       return new ResponseEntity<>(especialidadeVets, HttpStatus.OK);
    }
 

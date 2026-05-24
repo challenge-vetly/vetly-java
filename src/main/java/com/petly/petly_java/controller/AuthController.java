@@ -68,8 +68,8 @@ public class AuthController {
             return ResponseEntity.badRequest().build();
         }
         UsuarioDTO usuarioDTO = new UsuarioDTO(registerAdminDTO.email(), "ADMIN", "S", registerAdminDTO.senha());
-        usuarioService.create(usuarioDTO);
-        return ResponseEntity.ok().build();
+
+        return new ResponseEntity<>(usuarioService.create(usuarioDTO), HttpStatus.CREATED);
     }
 
 }
