@@ -5,17 +5,12 @@ import com.petly.petly_java.dto.EspecialidadeVetRequest;
 import com.petly.petly_java.mapper.EspecialidadeVetMapper;
 import com.petly.petly_java.model.EspecialidadeVet;
 import com.petly.petly_java.repository.EspecialidadeVetRepository;
-import jakarta.validation.Valid;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.GetMapping;
 
 import java.util.Optional;
-import java.util.UUID;
 
 @Service
 public class EspecialidadeVetService {
