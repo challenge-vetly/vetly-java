@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 
-public record RegisterDTO(
+public record RegisterAdminDTO(
         @NotBlank(message = "nao pode ser vazio")
         @Email(message = "Email inválido")
         String email,
@@ -23,8 +23,5 @@ public record RegisterDTO(
             - um caractere especial
             """
         )
-        String senha,
-        @NotNull(message = "nao pode ser vazio")
-        @ValueOfEnum(enumClass = UserRole.class)
-        String role) {
+        String senha) {
 }

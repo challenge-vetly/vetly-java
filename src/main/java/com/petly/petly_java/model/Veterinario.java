@@ -12,7 +12,7 @@ public class Veterinario {
 
     @Id
     @Column(name = "ID_VETERINARIO")
-    private UUID id;
+    private String id;
 
     @Column(name = "CRMV_VETERINARIO", nullable = false, unique = true, length = 20)
     private String crmv;
@@ -25,13 +25,14 @@ public class Veterinario {
     @JoinColumn(name = "TB_PESSOA_ID_PESSOA", nullable = false)
     private Pessoa pessoa;
 
-    @OneToMany(mappedBy = "veterinario", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "veterinario")
     private List<VeterinarioEspecialidade> especialidades;
 
-    @OneToMany(mappedBy = "veterinario", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "veterinario")
     private List<VeterinarioEspecie> especies;
 
-    public Veterinario(UUID id, String crmv, Usuario usuario, Pessoa pessoa, List<VeterinarioEspecialidade> especialidades, List<VeterinarioEspecie> especies) {
+    public Veterinario(String id, String crmv, Usuario usuario, Pessoa pessoa, List<VeterinarioEspecialidade> especialidades,
+                       List<VeterinarioEspecie> especies) {
         this.id = id;
         this.crmv = crmv;
         this.usuario = usuario;
@@ -40,11 +41,15 @@ public class Veterinario {
         this.especies = especies;
     }
 
-    public UUID getId() {
+    public Veterinario() {
+
+    }
+
+    public String getId() {
         return id;
     }
 
-    public void setId(UUID id) {
+    public void setId(String id) {
         this.id = id;
     }
 

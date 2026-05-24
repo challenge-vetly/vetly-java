@@ -16,8 +16,7 @@ public class VeterinarioEspecialidade {
 
     @Id
     @Column(name = "ID_ESPECIALIDADE_VETERINARIO")
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    private String id;
 
     @ManyToOne
     @JoinColumn(name = "TB_VETERINARIO_ID_VETERINARIO", nullable = false)
@@ -27,17 +26,21 @@ public class VeterinarioEspecialidade {
     @JoinColumn(name = "TB_ESPCD_VET_ID_ESPCD_VET", nullable = false)
     private EspecialidadeVet especialidade;
 
-    public VeterinarioEspecialidade(UUID id, Veterinario veterinario, EspecialidadeVet especialidade) {
+    public VeterinarioEspecialidade(String id, Veterinario veterinario, EspecialidadeVet especialidade) {
         this.id = id;
         this.veterinario = veterinario;
         this.especialidade = especialidade;
     }
 
-    public UUID getId() {
+    public VeterinarioEspecialidade() {
+
+    }
+
+    public String getId() {
         return id;
     }
 
-    public void setId(UUID id) {
+    public void setId(String id) {
         this.id = id;
     }
 

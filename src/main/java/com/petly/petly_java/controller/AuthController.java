@@ -1,11 +1,9 @@
 package com.petly.petly_java.controller;
 
-import com.petly.petly_java.dto.AuthDTO;
-import com.petly.petly_java.dto.LoginResponseDTO;
-import com.petly.petly_java.dto.RegisterDTO;
-import com.petly.petly_java.dto.UsuarioDTO;
+import com.petly.petly_java.dto.*;
 import com.petly.petly_java.model.Usuario;
 import com.petly.petly_java.repository.UsuarioRepository;
+import com.petly.petly_java.service.AuthService;
 import com.petly.petly_java.service.TokenService;
 import com.petly.petly_java.service.UsuarioService;
 import jakarta.validation.Valid;
@@ -17,13 +15,10 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.InternalAuthenticationServiceException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/auth")
@@ -35,16 +30,18 @@ public class AuthController {
     private TokenService tokenService;
     @Autowired
     private UsuarioService usuarioService;
+    @Autowired
+    private AuthService authService;
 
     public AuthController(UsuarioRepository usuarioRepository) {
         this.usuarioRepository = usuarioRepository;
     }
 
     @PostMapping("/login")
-    public ResponseEntity login(@Valid @RequestBody AuthDTO authDTO) {
+    public ResponseEntity login(@Valid @RequestBody AuthDTO AuthDTO) {
         try {
             // Gerando um token com o login e senha passados
-            var usuarioSenha = new UsernamePasswordAuthenticationToken(authDTO.email(), authDTO.senha());
+            var usuarioSenha = new UsernamePasswordAuthenticationToken(AuthDTO.email(), AuthDTO.senha());
             // Autenticando o token
             var auth = this.authenticationManager.authenticate(usuarioSenha);
             var token = tokenService.generateToken((Usuario) auth.getPrincipal());
@@ -59,12 +56,17 @@ public class AuthController {
 
     }
 
-    @PostMapping("/register")
-    public ResponseEntity register(@Valid @RequestBody RegisterDTO registerDTO) {
-        if (usuarioRepository.findByEmail(registerDTO.email()) != null) {
+    @PostMapping("/register/veterinario")
+    public ResponseEntity register(@Valid @RequestBody RegisterVeterinarioDTO registerVeterinarioDTO) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.registerVeterinario(registerVeterinarioDTO));
+    }
+
+    @PostMapping("/register/admin")
+    public ResponseEntity register(@Valid @RequestBody RegisterAdminDTO registerAdminDTO) {
+        if (usuarioRepository.findByEmail(registerAdminDTO.email()) != null) {
             return ResponseEntity.badRequest().build();
         }
-        UsuarioDTO usuarioDTO = new UsuarioDTO(registerDTO.email(), registerDTO.role(), "S", registerDTO.senha());
+        UsuarioDTO usuarioDTO = new UsuarioDTO(registerAdminDTO.email(), "ADMIN", "S", registerAdminDTO.senha());
         usuarioService.create(usuarioDTO);
         return ResponseEntity.ok().build();
     }

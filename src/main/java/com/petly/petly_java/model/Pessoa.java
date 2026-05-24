@@ -16,8 +16,7 @@ public class Pessoa {
 
     @Id
     @Column(name = "ID_PESSOA")
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    private String id;
 
     @Column(name = "NM_PESSOA", nullable = false, length = 100)
     private String nome;
@@ -28,18 +27,22 @@ public class Pessoa {
     @Column(name = "TEL_PESSOA", nullable = false, length = 15)
     private String telefone;
 
-    public Pessoa(UUID id, String nome, String cpf, String telefone) {
+    public Pessoa(String id, String nome, String cpf, String telefone) {
         this.id = id;
         this.nome = nome;
         this.cpf = cpf;
         this.telefone = telefone;
     }
 
-    public UUID getId() {
+    public Pessoa() {
+
+    }
+
+    public String getId() {
         return id;
     }
 
-    public void setId(UUID id) {
+    public void setId(String id) {
         this.id = id;
     }
 
