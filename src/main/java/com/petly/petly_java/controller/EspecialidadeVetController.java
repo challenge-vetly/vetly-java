@@ -21,11 +21,11 @@ import java.util.UUID;
 public class EspecialidadeVetController {
    private final EspecialidadeVetService especialidadeVetService;
 
+   @Autowired
    public EspecialidadeVetController(EspecialidadeVetService especialidadeVetService) {
       this.especialidadeVetService = especialidadeVetService;
    }
 
-   @Autowired
 
 
    @PostMapping

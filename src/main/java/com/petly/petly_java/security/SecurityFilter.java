@@ -21,12 +21,12 @@ public class SecurityFilter extends OncePerRequestFilter {
     private TokenService tokenService;
     private UsuarioRepository usuarioRepository;
 
+    @Autowired
     public SecurityFilter(TokenService tokenService, UsuarioRepository usuarioRepository) {
         this.tokenService = tokenService;
         this.usuarioRepository = usuarioRepository;
     }
 
-    @Autowired
 
 
     @Override

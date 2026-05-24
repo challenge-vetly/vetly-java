@@ -1,216 +1,371 @@
 # Vetly — Backend API (Java)
 
-Vetly is a veterinary management platform that connects tutors, veterinarians, and clinics through a unified digital experience. This repository contains the backend service built with Java and Spring Boot, responsible for the domain model and data persistence layer.
+Vetly é uma plataforma de gestão veterinária que conecta tutores, veterinários e clínicas por meio de uma experiência digital unificada. Este repositório contém o serviço backend construído com **Java 21** e **Spring Boot**, responsável pelo modelo de domínio, persistência de dados e camada de API REST.
 
 ---
 
-## Table of Contents
+## Índice
 
-- [Overview](#overview)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Domain Model](#domain-model)
-- [Getting Started](#getting-started)
-- [Configuration](#configuration)
+- [Visão Geral](#visão-geral)
+- [Stack Tecnológica](#stack-tecnológica)
+- [Estrutura do Projeto](#estrutura-do-projeto)
+- [Modelo de Domínio](#modelo-de-domínio)
+- [API REST — Endpoints Implementados](#api-rest--endpoints-implementados)
+- [Segurança e Autenticação](#segurança-e-autenticação)
+- [Como Executar](#como-executar)
+- [Configuração](#configuração)
+- [Documentação Swagger](#documentação-swagger)
 - [Roadmap](#roadmap)
 
 ---
 
-## Overview
+## Visão Geral
 
-The Vetly backend implements the core domain entities for the platform's first operational phases:
+O backend Vetly implementa as entidades centrais do domínio e uma camada de API REST funcional para os primeiros módulos operacionais:
 
-- **Veterinarian registration** with CRMV, specialties, species, availability schedule, and active/inactive status
-- **Tutor registration** with CPF, email, and future pet relationship
-- **Animal (Pet) registration** linked to a species, breed, age, and medical record
-- **Medical Record (Prontuário)** as the longitudinal clinical history of the animal
-- **Clinical Evolution (Evolução Clínica)** recording physician annotations per consultation
-- **Consultation (Consulta)** linking an animal, a veterinarian, a date/time, and a resulting clinical evolution
-- **Availability (Disponibilidade)** defining a veterinarian's working days and hours
-
-The project is in its early structural phase — entities and relationships are modelled; controllers, services, and repositories are not yet implemented.
+- **Autenticação** com JWT — login, registro de veterinários e administradores
+- **Gestão de Usuários** — CRUD paginado com controle de papéis (ADMIN / VETERINÁRIO / TUTOR)
+- **Espécies** — cadastro e listagem das espécies de animais atendidas
+- **Especialidades Veterinárias** — cadastro e listagem paginada com links HATEOAS
+- **Modelo de domínio completo** — entidades mapeadas com JPA para: Animal, Consulta, Prontuário, Evolução Clínica, Solicitação de Exame, Tutor, Veterinário e demais tabelas auxiliares
 
 ---
 
-## Tech Stack
+## Stack Tecnológica
 
-| Layer | Technology |
-|---|---|
-| Language | Java 21 |
+| Camada | Tecnologia |
+|--------|-----------|
+| Linguagem | Java 21 |
 | Framework | Spring Boot 4.0.6 |
-| Persistence | Spring Data JPA (Hibernate) |
-| Database | Oracle Database (ojdbc11) |
-| Build Tool | Gradle |
-| Testing | JUnit 5 via Spring Boot Test |
+| Persistência | Spring Data JPA (Hibernate) |
+| Banco de Dados | Oracle Database (ojdbc11) |
+| Segurança | Spring Security + JWT (`com.auth0:java-jwt:4.4.0`) |
+| API | Spring Web MVC + Spring HATEOAS |
+| Validação | Bean Validation (Jakarta) |
+| Build | Gradle |
+| Testes | JUnit 5 via Spring Boot Test |
 
 ---
 
-## Project Structure
+## Estrutura do Projeto
 
 ```
 vetly-java/
 ├── build.gradle
 ├── settings.gradle
+├── swagger.yaml                        # Documentação OpenAPI 3.0
 └── src/
     └── main/
         ├── java/com/petly/petly_java/
-        │   ├── PetlyJavaApplication.java       # Application entry point
-        │   └── model/
-        │       ├── Animal.java                 # Pet entity
-        │       ├── Consulta.java               # Consultation entity
-        │       ├── Disponibilidade.java         # Veterinarian schedule slot
-        │       ├── Especialidade.java           # Specialty enum (22 options)
-        │       ├── Especie.java                 # Species enum (7 options)
-        │       ├── EvolucaoClinica.java         # Clinical evolution/notes
-        │       ├── Prontuario.java              # Medical record
-        │       ├── Tutor.java                   # Pet owner entity
-        │       ├── UF.java                      # Brazilian states enum
-        │       └── Veterinario.java             # Veterinarian entity
+        │   ├── PetlyJavaApplication.java
+        │   ├── controller/
+        │   │   ├── AuthController.java
+        │   │   ├── EspecialidadeVetController.java
+        │   │   ├── EspecieController.java
+        │   │   └── UsuarioController.java
+        │   ├── dto/
+        │   │   ├── AuthDTO.java
+        │   │   ├── EspecialidadeVetLista.java
+        │   │   ├── EspecialidadeVetRequest.java
+        │   │   ├── EspecieRequest.java
+        │   │   ├── LoginResponseDTO.java
+        │   │   ├── RegisterAdminDTO.java
+        │   │   ├── RegisterVeterinarioDTO.java
+        │   │   ├── UsuarioDTO.java
+        │   │   ├── UsuarioLista.java
+        │   │   └── UsuarioResponse.java
+        │   ├── exception/
+        │   │   └── GlobalExceptionHandler.java
+        │   ├── mapper/
+        │   │   ├── EspecialidadeVetMapper.java
+        │   │   ├── EspecieMapper.java
+        │   │   └── UsuarioMapper.java
+        │   ├── model/
+        │   │   ├── Animal.java
+        │   │   ├── AnexoExame.java
+        │   │   ├── Consulta.java
+        │   │   ├── Disponibilidade.java         # ⚠️ Em desenvolvimento
+        │   │   ├── EspecialidadeVet.java
+        │   │   ├── Especie.java
+        │   │   ├── EvolucaoClinica.java
+        │   │   ├── LogErro.java
+        │   │   ├── NomeEspecialidade.java        # Enum (21 especialidades)
+        │   │   ├── NomeEspecie.java              # Enum (8 espécies)
+        │   │   ├── Pessoa.java
+        │   │   ├── Prontuario.java
+        │   │   ├── Sexo.java
+        │   │   ├── SolicitacaoExame.java
+        │   │   ├── SolicitacaoExameItem.java
+        │   │   ├── StatusConsulta.java
+        │   │   ├── StatusExame.java
+        │   │   ├── Tutor.java
+        │   │   ├── UserRole.java
+        │   │   ├── Usuario.java
+        │   │   ├── Veterinario.java
+        │   │   ├── VeterinarioEspecialidade.java
+        │   │   └── VeterinarioEspecie.java
+        │   ├── repository/
+        │   │   ├── EspecialidadeVetRepository.java
+        │   │   ├── EspecieRepository.java
+        │   │   ├── PessoaRepository.java
+        │   │   ├── UsuarioRepository.java
+        │   │   ├── VeterinarioEspecialidadeRepository.java
+        │   │   ├── VeterinarioEspecieRepository.java
+        │   │   └── VeterinarioRepository.java
+        │   ├── security/
+        │   │   ├── SecurityConfigurations.java
+        │   │   └── SecurityFilter.java
+        │   ├── service/
+        │   │   ├── AuthService.java
+        │   │   ├── EspecialidadeVetService.java
+        │   │   ├── EspecieService.java
+        │   │   ├── TokenService.java
+        │   │   └── UsuarioService.java
+        │   └── validation/
+        │       ├── ValueOfEnum.java
+        │       ├── ValueOfEnumValidator.java
+        │       └── ValueOfEnumListValidator.java
         └── resources/
             └── application.properties
 ```
 
 ---
 
-## Domain Model
+## Modelo de Domínio
 
-### Entities
+### Entidades Persistidas
+
+#### `Usuario`
+Conta de acesso ao sistema. Implementa `UserDetails` para integração com Spring Security.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | String (UUID) | Identificador único |
+| `email` | String | E-mail único de login |
+| `role` | UserRole (enum) | Papel: `ADMIN`, `TUTOR` ou `VETERINARIO` |
+| `flagAtivo` | String (`S`/`N`) | Status ativo/inativo |
+| `senhaHash` | String | Senha criptografada com BCrypt |
+
+#### `Pessoa`
+Dados pessoais compartilhados por Veterinário e Tutor.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | String (UUID) | Identificador único |
+| `nome` | String (100) | Nome completo |
+| `cpf` | String (11) | CPF (único junto ao telefone) |
+| `telefone` | String (15) | Telefone de contato |
 
 #### `Veterinario`
-Represents a veterinary professional registered on the platform.
+Profissional veterinário vinculado a um `Usuario` e uma `Pessoa`.
 
-| Field | Type | Description |
-|---|---|---|
-| `id` | UUID | Unique identifier |
-| `nome` | String | Full name |
-| `crmv` | String | Unique professional registration number |
-| `cpf` | String | Unique taxpayer ID |
-| `email` | String | Unique email address |
-| `telefone` | String | Phone number |
-| `isAtivo` | boolean | Active/inactive status flag |
-| `ufAtuacao` | UF (enum) | Brazilian state of practice |
-| `especialidades` | List\<Especialidade\> | List of medical specialties |
-| `especiesAtendidas` | List\<Especie\> | List of species treated |
-| `disponibilidades` | List\<Disponibilidade\> | Schedule slots |
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | String (UUID) | Identificador único |
+| `crmv` | String (20) | Número único do CRMV |
+| `usuario` | Usuario | Conta de acesso (1:1) |
+| `pessoa` | Pessoa | Dados pessoais (1:1) |
+| `especialidades` | List\<VeterinarioEspecialidade\> | Especialidades do vet |
+| `especies` | List\<VeterinarioEspecie\> | Espécies que atende |
 
 #### `Tutor`
-Represents the pet owner.
+Dono do animal, vinculado a um `Usuario` e uma `Pessoa`.
 
-| Field | Type | Description |
-|---|---|---|
-| `id` | UUID | Unique identifier |
-| `nome` | String | Full name |
-| `cpf` | String | Unique taxpayer ID |
-| `email` | String | Email address |
-
-> ⚠️ **TODO:** Relationship between `Tutor` and their animals is not yet implemented (noted in source code).
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | UUID | Identificador único |
+| `usuario` | Usuario | Conta de acesso (1:1) |
+| `pessoa` | Pessoa | Dados pessoais (1:1) |
 
 #### `Animal`
-Represents a pet registered on the platform.
+Animal cadastrado na plataforma, associado a um `Tutor` e uma `Especie`.
 
-| Field | Type | Description |
-|---|---|---|
-| `id` | UUID | Unique identifier |
-| `nome` | String | Pet name |
-| `especie` | Especie (enum) | Species |
-| `raca` | String | Breed |
-| `idade` | int | Age |
-| `prontuario` | Prontuario | One-to-one medical record |
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | UUID | Identificador único |
+| `nome` | String (80) | Nome do animal |
+| `raca` | String (80) | Raça |
+| `sexo` | Sexo (enum) | `M` ou `F` |
+| `dataNascimento` | LocalDate | Data de nascimento |
+| `peso` | BigDecimal | Peso em kg |
+| `tutor` | Tutor | Tutor responsável |
+| `especie` | Especie | Espécie do animal |
 
-#### `Prontuario`
-The longitudinal medical record of an animal. Contains the full history of clinical evolutions across all consultations.
+#### `EspecialidadeVet`
+Especialidade veterinária cadastrada no sistema (tabela de domínio).
 
-| Field | Type | Description |
-|---|---|---|
-| `id` | UUID | Unique identifier |
-| `animal` | Animal | Associated animal (one-to-one) |
-| `evolucoes` | List\<EvolucaoClinica\> | All clinical evolution entries |
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | String (UUID) | Identificador único |
+| `nome` | NomeEspecialidade (enum) | Nome único da especialidade |
+| `descricao` | String (150) | Descrição da especialidade |
 
-#### `EvolucaoClinica`
-Clinical notes produced by the veterinarian during or after a consultation.
+#### `Especie`
+Espécie animal (tabela de domínio).
 
-| Field | Type | Description |
-|---|---|---|
-| `id` | UUID | Unique identifier |
-| `prontuario` | Prontuario | The animal's medical record this entry belongs to |
-| `consulta` | Consulta | The consultation that generated this entry (one-to-one) |
-| `anotacoes` | String (up to 10,000 chars) | Veterinarian's clinical notes |
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | String (UUID) | Identificador único |
+| `nome` | NomeEspecie (enum) | Nome único da espécie |
 
 #### `Consulta`
-Represents a scheduled or completed appointment between a vet and an animal.
+Agendamento entre veterinário e animal.
 
-| Field | Type | Description |
-|---|---|---|
-| `id` | UUID | Unique identifier |
-| `animal` | Animal | The animal being attended |
-| `veterinario` | Veterinario | The attending veterinarian |
-| `dataHora` | LocalDateTime | Date and time of the consultation |
-| `evolucaoClinica` | EvolucaoClinica | Clinical evolution generated by this consultation |
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | UUID | Identificador único |
+| `dataHora` | LocalDateTime | Data e hora da consulta |
+| `status` | StatusConsulta (enum) | `AGENDADA`, `CANCELADA` ou `REALIZADA` |
+| `valor` | BigDecimal | Valor cobrado |
+| `observacao` | String (500) | Observações opcionais |
+| `veterinario` | Veterinario | Veterinário responsável |
+| `animal` | Animal | Animal atendido |
 
-#### `Disponibilidade`
-Represents a time slot in a veterinarian's weekly schedule.
+#### `Prontuario`
+Histórico clínico longitudinal do animal (1:1 com Animal).
 
-| Field | Type | Description |
-|---|---|---|
-| `id` | UUID | Unique identifier |
-| `diaSemana` | DayOfWeek | Day of the week |
-| `inicio` | LocalTime | Start time |
-| `fim` | LocalTime | End time |
+#### `EvolucaoClinica`
+Anotações clínicas produzidas em uma consulta (1:1 com Consulta).
+
+#### `SolicitacaoExame` / `SolicitacaoExameItem` / `AnexoExame`
+Fluxo completo de solicitação, acompanhamento e resultado de exames laboratoriais.
+
+#### `LogErro`
+Registro de erros de execução para auditoria.
 
 ---
 
 ### Enums
 
-#### `Especialidade` — 22 veterinary specialties
+#### `NomeEspecialidade` — 21 especialidades veterinárias
+`ACUPUNTURA`, `ANESTESIOLOGIA`, `CARDIOLOGIA`, `CIRURGIA`, `DERMATOLOGIA`, `ENDOCRINOLOGIA`, `FISIOTERAPIA`, `GERIATRIA`, `HOMEOPATIA`, `MEDICINA_ANIMAIS_SELVAGENS`, `MEDICINA_DO_COLETIVO`, `MEDICINA_INTENSIVA`, `NEFROLOGIA_E_UROLOGIA`, `NEUROLOGIA`, `NUTROLOGIA`, `ODONTOLOGIA`, `OFTALMOLOGIA`, `PATOLOGIA`, `PEQUENOS_ANIMAIS`, `PNEUMOLOGIA`, `RADIOLOGIA`
 
-#### `Especie` — 7 species categories
+#### `NomeEspecie` — 8 espécies
+`AVE`, `REPTIL`, `MAMIFERO`, `ANFIBIO`, `PEIXE`, `EQUIDEO`, `CAO`, `GATO`
 
-#### `UF` — All 27 Brazilian states/DF
+#### `UserRole` — 3 papéis
+`ADMIN`, `TUTOR`, `VETERINARIO`
 
----
+#### `StatusConsulta`
+`AGENDADA`, `CANCELADA`, `REALIZADA`
 
-### Entity Relationship Summary
-
-```
-Tutor
-  └── (TODO) → Animal (1:N)
-
-Animal
-  └── Prontuario (1:1)
-        └── EvolucaoClinica (1:N)
-              └── Consulta (1:1)
-                    ├── Animal (N:1)
-                    └── Veterinario (N:1)
-
-Veterinario
-  └── Disponibilidade (1:N)
-```
+#### `StatusExame`
+`SOLICITADO`, `AGUARDANDO_RESULTADO`, `RESULTADO_ENVIADO`, `ANALISADO`, `CANCELADO`
 
 ---
 
-## Getting Started
+### Diagrama de Relacionamentos
 
-### Prerequisites
+```
+Usuario ────────────────────────┐
+  ├── (1:1) Veterinario          │
+  │     ├── (1:1) Pessoa         │
+  │     ├── (1:N) VeterinarioEspecialidade → EspecialidadeVet
+  │     └── (1:N) VeterinarioEspecie      → Especie
+  └── (1:1) Tutor                │
+        └── (1:1) Pessoa         │
+                                 │
+Animal ──────────────────────────┘
+  ├── (N:1) Tutor
+  ├── (N:1) Especie
+  └── (1:1) Prontuario
+              └── (indireta via Consulta) EvolucaoClinica
+
+Consulta
+  ├── (N:1) Veterinario
+  ├── (N:1) Animal
+  ├── (1:1) EvolucaoClinica
+  └── (1:1) SolicitacaoExame
+              └── (1:N) SolicitacaoExameItem
+                            └── (1:N) AnexoExame
+```
+
+---
+
+## API REST — Endpoints Implementados
+
+### Autenticação (`/auth`)
+
+| Método | Endpoint | Acesso | Descrição |
+|--------|----------|--------|-----------|
+| `POST` | `/auth/login` | Público | Autentica e retorna JWT |
+| `POST` | `/auth/register/veterinario` | Público | Registra veterinário com perfil completo |
+| `POST` | `/auth/register/admin` | Público | Registra administrador |
+
+### Usuários (`/usuarios`)
+
+| Método | Endpoint | Acesso | Descrição |
+|--------|----------|--------|-----------|
+| `POST` | `/usuarios` | ADMIN | Cria usuário |
+| `GET` | `/usuarios` | ADMIN | Lista paginada (5/pág, ordenado por e-mail) |
+| `GET` | `/usuarios/{id}` | ADMIN | Busca por ID |
+
+### Espécies (`/especies`)
+
+| Método | Endpoint | Acesso | Descrição |
+|--------|----------|--------|-----------|
+| `POST` | `/especies` | ADMIN | Cria espécie |
+| `GET` | `/especies` | Público | Lista todas as espécies |
+| `GET` | `/especies/{id}` | Público | Busca por ID |
+| `PUT` | `/especies` | ADMIN | Atualiza espécie (ID no corpo) |
+| `DELETE` | `/especies/{id}` | ADMIN | Remove espécie |
+
+### Especialidades Veterinárias (`/especialidades`)
+
+| Método | Endpoint | Acesso | Descrição |
+|--------|----------|--------|-----------|
+| `POST` | `/especialidades` | ADMIN | Cria especialidade |
+| `GET` | `/especialidades` | Público | Lista paginada (2/pág, ordenado por nome) com HATEOAS |
+| `GET` | `/especialidades/{id}` | Público | Busca por ID |
+| `PUT` | `/especialidades` | ADMIN | Atualiza especialidade (ID no corpo) |
+| `DELETE` | `/especialidades/{id}` | ADMIN | Remove especialidade |
+
+---
+
+## Segurança e Autenticação
+
+A API utiliza **JWT stateless** com Spring Security:
+
+- Tokens gerados pela `TokenService` usando a biblioteca `com.auth0:java-jwt`
+- O `SecurityFilter` intercepta cada requisição, extrai e valida o token, e popula o contexto de segurança
+- Senhas armazenadas com **BCryptPasswordEncoder**
+- Sessões HTTP são stateless (`SessionCreationPolicy.STATELESS`)
+- CSRF desabilitado (API REST sem estado)
+
+### Regras de acesso
+
+| Recurso | Método | Papel exigido |
+|---------|--------|---------------|
+| `/auth/**` | POST | Público |
+| `/especies`, `/especialidades` | GET | Público |
+| `/especies`, `/especialidades`, `/usuarios` | POST, PUT, DELETE | ADMIN |
+| Demais endpoints | Qualquer | Autenticado |
+
+---
+
+## Como Executar
+
+### Pré-requisitos
 
 - Java 21+
 - Gradle 8+
-- Oracle Database instance (or compatible JDBC connection)
+- Instância Oracle Database acessível
 
-### Running the application
+### Executando a aplicação
 
 ```bash
-# Clone the repository
+# Clonar o repositório
 git clone https://github.com/your-org/vetly-java.git
 cd vetly-java
 
 # Build
 ./gradlew build
 
-# Run
+# Executar
 ./gradlew bootRun
 ```
 
-### Running tests
+### Executando os testes
 
 ```bash
 ./gradlew test
@@ -218,50 +373,81 @@ cd vetly-java
 
 ---
 
-## Configuration
+## Configuração
 
-The `application.properties` file currently only defines the application name. Database connection properties must be added before running:
+O arquivo `src/main/resources/application.properties` deve ser configurado antes de executar:
 
 ```properties
 spring.application.name=petly-java
 
-# Add your Oracle DB connection:
-spring.datasource.url=jdbc:oracle:thin:@localhost:1521:xe
-spring.datasource.username=your_user
-spring.datasource.password=your_password
+# Segurança JWT — troque em produção!
+api.security.token.secret=sua-chave-secreta-forte
+
+# Conexão Oracle
+spring.datasource.url=jdbc:oracle:thin:@//localhost:1521/orcl
+spring.datasource.username=seu_usuario
+spring.datasource.password=sua_senha
 spring.datasource.driver-class-name=oracle.jdbc.OracleDriver
 
+# JPA
 spring.jpa.hibernate.ddl-auto=update
 spring.jpa.show-sql=true
+
+# Configuração para respostas 404 em rotas inexistentes
+spring.mvc.throw-exception-if-no-handler-found=true
+spring.web.resources.add-mappings=false
 ```
+### Banco de dados
+O arquivo `DDL.txt` possui o codigo para criacao das tabelas no Oracle Database.
+Rode os comandos e substitua as credenciais no `src/main/resources/application.properties`
+para testar a persistencia dos dados.
+
+> ⚠️ **Atenção:** nunca comite credenciais reais no repositório. Use variáveis de ambiente ou um cofre de segredos em produção.
+
+---
+
+## Documentação Swagger
+
+A documentação completa da API está disponível no arquivo `swagger.yaml` (OpenAPI 3.0) na raiz do projeto.
+
+**Swagger UI:**
+
+Adicione ao `build.gradle` para servir o Swagger UI diretamente pela aplicação:
+```groovy
+implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
+```
+Depois acesse: `http://localhost:8080/swagger-ui.html`
 
 ---
 
 ## Roadmap
 
-The following features from the Vetly product specification are **not yet implemented** in this codebase and represent the next development phases:
+### Em desenvolvimento
+- [ ] Analise de prontuario com Inteligencia Artificial
+- [ ] `Disponibilidade` — modelo de grade horária do veterinário (entidade criada, sem campos)
+- [ ] Registro de Tutor (`/auth/register/tutor`) — código comentado em `AuthService`
 
-**Data Layer**
-- [ ] Repository interfaces (`JpaRepository`) for all entities
-- [ ] `Tutor` ↔ `Animal` relationship
-- [ ] Financial data model (payments, split rules, subscriptions)
+### Próximas funcionalidades
 
-**Application Layer**
-- [ ] Service classes with business logic
-- [ ] CRMV validation service (integration with regional veterinary council)
-- [ ] Scheduling and availability conflict resolution
+**Camada de Dados**
+- [ ] Repositórios JPA para: `Animal`, `Tutor`, `Consulta`, `Prontuario`, `EvolucaoClinica`, `SolicitacaoExame`
+- [ ] Modelo financeiro (pagamentos, split de receita, assinaturas)
 
-**API Layer**
-- [ ] REST controllers for all entities
-- [ ] DTOs and request/response mapping
-- [ ] Authentication and role-based access control (Veterinário Autônomo, Admin, Veterinário Vinculado)
+**Camada de Aplicação**
+- [ ] Services para Animal, Consulta, Prontuário, Exames
+- [ ] Serviço de validação de CRMV (integração com conselhos regionais)
+- [ ] Resolução de conflitos de disponibilidade na agenda
 
-**Integrations**
-- [ ] Abacate Pay — payment processing and financial split
-- [ ] WhatsApp — proactive communications and conversational flows
-- [ ] AI assistant — diagnostic suggestions and protocol generation
+**Camada de API**
+- [ ] Controllers REST para Animal, Consulta, Prontuário, Exames
+- [ ] Integração do `springdoc-openapi` para servir Swagger UI in-app
 
-**Infrastructure**
-- [ ] LGPD consent tracking
-- [ ] Document generation (prontuário, receita, atestado, nota fiscal)
-- [ ] Audit logging for medical record corrections
+**Integrações**
+- [ ] Abacate Pay — processamento de pagamentos e split financeiro
+- [ ] WhatsApp — comunicações proativas e fluxos conversacionais
+- [ ] Assistente IA — sugestões diagnósticas e geração de protocolos
+
+**Infraestrutura**
+- [ ] Rastreamento de consentimento LGPD
+- [ ] Geração de documentos (prontuário, receita, atestado, nota fiscal)
+- [ ] Log de auditoria para correções em prontuários

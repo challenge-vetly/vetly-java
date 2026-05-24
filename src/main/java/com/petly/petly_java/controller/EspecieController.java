@@ -17,12 +17,10 @@ import java.util.List;
 public class EspecieController {
     private final EspecieService especieService;
 
+    @Autowired
     public EspecieController(EspecieService especieService) {
         this.especieService = especieService;
     }
-
-    @Autowired
-
 
     @PostMapping
     public ResponseEntity<Especie> createEspecie(@Valid @RequestBody EspecieRequest request){

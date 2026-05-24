@@ -20,12 +20,10 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfigurations {
     private SecurityFilter securityFilter;
 
+    @Autowired
     public SecurityConfigurations(SecurityFilter securityFilter) {
         this.securityFilter = securityFilter;
     }
-
-    @Autowired
-
 
     private static final String[] PUBLIC_GET = {
             "/especies", "/especialidades"
@@ -33,6 +31,13 @@ public class SecurityConfigurations {
 
     private static final String[] ADMIN_RESOURCES = {
             "/especies", "/especialidades", "/usuarios"
+    };
+
+    private static final String[] SWAGGER_WHITELIST = {
+            "/swagger-ui/**",
+            "/swagger-ui.html",
+            "/v3/api-docs/**",
+            "/v3/api-docs.yaml"
     };
 
     @Bean
@@ -43,6 +48,7 @@ public class SecurityConfigurations {
                             session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth ->
                         auth
+                                .requestMatchers(SWAGGER_WHITELIST).permitAll()
                                 .requestMatchers(HttpMethod.POST, "/auth/**").permitAll()
                                 .requestMatchers(HttpMethod.GET, PUBLIC_GET).permitAll()
                                 .requestMatchers(ADMIN_RESOURCES).hasRole("ADMIN")

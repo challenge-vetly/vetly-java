@@ -1,0 +1,756 @@
+openapi: 3.0.3
+info:
+  title: Vetly — API Backend
+  description: |
+    API REST do backend da plataforma **Vetly**, um sistema de gestão veterinária que conecta tutores, veterinários e clínicas.
+
+    ## Autenticação
+    A API utiliza **JWT Bearer Token**. Para acessar endpoints protegidos:
+    1. Faça login em `POST /auth/login` com suas credenciais.
+    2. Copie o token retornado.
+    3. Inclua o cabeçalho `Authorization: Bearer <token>` nas requisições seguintes.
+
+    ## Papéis de usuário
+    | Role | Descrição |
+    |------|-----------|
+    | `ADMIN` | Acesso total — gerencia usuários, espécies e especialidades |
+    | `VETERINARIO` | Acesso autenticado — operações clínicas |
+    | `TUTOR` | Acesso autenticado — operações do tutor |
+
+    ## Regras de acesso
+    - `POST /auth/**` — público
+    - `GET /especies` e `GET /especialidades` — público
+    - `/usuarios`, `POST/PUT/DELETE /especies`, `POST/PUT/DELETE /especialidades` — somente `ADMIN`
+    - Demais endpoints — requerem autenticação
+
+  version: 0.1.0
+  contact:
+    name: Equipe Vetly
+  license:
+    name: Proprietário
+
+servers:
+  - url: http://localhost:8080
+    description: Ambiente de desenvolvimento local
+
+tags:
+  - name: Autenticação
+    description: Login e registro de usuários
+  - name: Usuários
+    description: Gerenciamento de usuários (apenas ADMIN)
+  - name: Espécies
+    description: Cadastro de espécies de animais
+  - name: Especialidades
+    description: Cadastro de especialidades veterinárias
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token JWT obtido via `POST /auth/login`
+
+  schemas:
+
+    # ─── Auth ───────────────────────────────────────────────
+    AuthDTO:
+      type: object
+      required: [email, senha]
+      properties:
+        email:
+          type: string
+          format: email
+          example: veterinario@vetly.com.br
+        senha:
+          type: string
+          description: |
+            Mínimo 8 caracteres; deve conter letra maiúscula, letra minúscula,
+            número e caractere especial (@$!%*?&).
+          example: "Senha@123"
+
+    LoginResponseDTO:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT de acesso
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    RegisterVeterinarioDTO:
+      type: object
+      required: [email, senha, crmv, nome, cpf, telefone, especialidades, especies]
+      properties:
+        email:
+          type: string
+          format: email
+          example: joao.silva@vetly.com.br
+        senha:
+          type: string
+          example: "Senha@123"
+        crmv:
+          type: string
+          description: Número do CRMV (registro profissional veterinário)
+          example: "SP-12345"
+        nome:
+          type: string
+          maxLength: 100
+          example: "Dr. João Silva"
+        cpf:
+          type: string
+          description: CPF válido (somente números)
+          example: "12345678909"
+        telefone:
+          type: string
+          description: "Formato aceito: (11) 91234-5678"
+          example: "(11) 91234-5678"
+        especialidades:
+          type: array
+          description: Lista de especialidades veterinárias (valores do enum NomeEspecialidade)
+          items:
+            $ref: '#/components/schemas/NomeEspecialidade'
+          example: ["CARDIOLOGIA", "CIRURGIA"]
+        especies:
+          type: array
+          description: Lista de espécies atendidas (valores do enum NomeEspecie)
+          items:
+            $ref: '#/components/schemas/NomeEspecie'
+          example: ["CAO", "GATO"]
+
+    RegisterAdminDTO:
+      type: object
+      required: [email, senha]
+      properties:
+        email:
+          type: string
+          format: email
+          example: admin@vetly.com.br
+        senha:
+          type: string
+          example: "Admin@123"
+
+    # ─── Usuário ─────────────────────────────────────────────
+    UsuarioDTO:
+      type: object
+      required: [email, role, flagAtivo, senha]
+      properties:
+        email:
+          type: string
+          format: email
+          example: novo@vetly.com.br
+        role:
+          $ref: '#/components/schemas/UserRole'
+        flagAtivo:
+          type: string
+          enum: [S, N]
+          description: "'S' = ativo, 'N' = inativo"
+          example: "S"
+        senha:
+          type: string
+          example: "Senha@123"
+
+    UsuarioResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        email:
+          type: string
+          format: email
+          example: joao@vetly.com.br
+        role:
+          $ref: '#/components/schemas/UserRole'
+        flagAtivo:
+          type: string
+          enum: [S, N]
+          example: "S"
+
+    UsuarioLista:
+      type: object
+      description: Projeção resumida para listagens paginadas
+      properties:
+        email:
+          type: string
+          format: email
+          example: joao@vetly.com.br
+        link:
+          $ref: '#/components/schemas/HateoasLink'
+
+    PageUsuarioLista:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsuarioLista'
+        totalElements:
+          type: integer
+          example: 42
+        totalPages:
+          type: integer
+          example: 9
+        number:
+          type: integer
+          description: Página atual (base 0)
+          example: 0
+        size:
+          type: integer
+          example: 5
+
+    # ─── Espécie ─────────────────────────────────────────────
+    EspecieRequest:
+      type: object
+      required: [nome]
+      properties:
+        nome:
+          $ref: '#/components/schemas/NomeEspecie'
+
+    Especie:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+        nome:
+          $ref: '#/components/schemas/NomeEspecie'
+
+    # ─── Especialidade ───────────────────────────────────────
+    EspecialidadeVetRequest:
+      type: object
+      required: [nome, descricao]
+      properties:
+        nome:
+          $ref: '#/components/schemas/NomeEspecialidade'
+        descricao:
+          type: string
+          maxLength: 150
+          example: "Diagnóstico e tratamento de doenças cardíacas em animais."
+
+    EspecialidadeVet:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "c3d4e5f6-a7b8-9012-cdef-123456789012"
+        nome:
+          $ref: '#/components/schemas/NomeEspecialidade'
+        descricao:
+          type: string
+          example: "Diagnóstico e tratamento de doenças cardíacas em animais."
+
+    EspecialidadeVetLista:
+      type: object
+      description: Projeção resumida para listagens paginadas
+      properties:
+        nome:
+          $ref: '#/components/schemas/NomeEspecialidade'
+        link:
+          $ref: '#/components/schemas/HateoasLink'
+
+    PageEspecialidadeVetLista:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/EspecialidadeVetLista'
+        totalElements:
+          type: integer
+          example: 21
+        totalPages:
+          type: integer
+          example: 11
+        number:
+          type: integer
+          example: 0
+        size:
+          type: integer
+          example: 2
+
+    # ─── Enums ───────────────────────────────────────────────
+    UserRole:
+      type: string
+      enum: [ADMIN, TUTOR, VETERINARIO]
+      description: Papel do usuário no sistema
+
+    NomeEspecie:
+      type: string
+      enum: [AVE, REPTIL, MAMIFERO, ANFIBIO, PEIXE, EQUIDEO, CAO, GATO]
+      description: Espécie do animal
+
+    NomeEspecialidade:
+      type: string
+      enum:
+        - ACUPUNTURA
+        - ANESTESIOLOGIA
+        - CARDIOLOGIA
+        - CIRURGIA
+        - DERMATOLOGIA
+        - ENDOCRINOLOGIA
+        - FISIOTERAPIA
+        - GERIATRIA
+        - HOMEOPATIA
+        - MEDICINA_ANIMAIS_SELVAGENS
+        - MEDICINA_DO_COLETIVO
+        - MEDICINA_INTENSIVA
+        - NEFROLOGIA_E_UROLOGIA
+        - NEUROLOGIA
+        - NUTROLOGIA
+        - ODONTOLOGIA
+        - OFTALMOLOGIA
+        - PATOLOGIA
+        - PEQUENOS_ANIMAIS
+        - PNEUMOLOGIA
+        - RADIOLOGIA
+      description: Especialidade veterinária
+
+    # ─── HATEOAS ─────────────────────────────────────────────
+    HateoasLink:
+      type: object
+      description: Link HATEOAS para o recurso completo
+      properties:
+        href:
+          type: string
+          format: uri
+          example: "http://localhost:8080/especialidades/c3d4e5f6-a7b8-9012-cdef-123456789012"
+
+    # ─── Erros ───────────────────────────────────────────────
+    ErroGenerico:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Recurso protegido"
+
+    ErroValidacao:
+      type: object
+      properties:
+        campo:
+          type: string
+          example: "email"
+        mensagem:
+          type: string
+          example: "Email inválido"
+
+security:
+  - bearerAuth: []
+
+paths:
+
+  # ══════════════════════════════════════════
+  # AUTH
+  # ══════════════════════════════════════════
+  /auth/login:
+    post:
+      tags: [Autenticação]
+      summary: Autenticar usuário
+      description: Autentica e-mail e senha; retorna JWT de acesso.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthDTO'
+            example:
+              email: admin@vetly.com.br
+              senha: "Admin@123"
+      responses:
+        '200':
+          description: Autenticação bem-sucedida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponseDTO'
+        '401':
+          description: Credenciais inválidas
+          content:
+            application/json:
+              schema:
+                type: string
+              examples:
+                usuario_nao_encontrado:
+                  value: "Usuário não encontrado"
+                senha_incorreta:
+                  value: "Senha incorreta"
+        '422':
+          description: Dados de entrada inválidos (falha de validação)
+
+  /auth/register/veterinario:
+    post:
+      tags: [Autenticação]
+      summary: Registrar novo veterinário
+      description: |
+        Cria uma conta de veterinário com perfil completo.
+        Internamente cria registros nas tabelas `TB_USUARIO`, `TB_PESSOA`, `TB_VETERINARIO`,
+        `TB_VETERINARIO_ESPECIALIDADE` e `TB_VETERINARIO_ESPECIE` de forma transacional.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterVeterinarioDTO'
+            example:
+              email: dra.ana@vetly.com.br
+              senha: "Senha@456"
+              crmv: "SP-98765"
+              nome: "Dra. Ana Oliveira"
+              cpf: "98765432100"
+              telefone: "(11) 97654-3210"
+              especialidades: ["CARDIOLOGIA", "PEQUENOS_ANIMAIS"]
+              especies: ["CAO", "GATO", "AVE"]
+      responses:
+        '201':
+          description: Veterinário registrado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioResponse'
+        '400':
+          description: E-mail já cadastrado
+        '422':
+          description: Dados de entrada inválidos
+
+  /auth/register/admin:
+    post:
+      tags: [Autenticação]
+      summary: Registrar novo administrador
+      description: Cria uma conta com papel `ADMIN`. Retorna `400` se o e-mail já existir.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterAdminDTO'
+      responses:
+        '200':
+          description: Admin criado com sucesso
+        '400':
+          description: E-mail já cadastrado
+
+  # ══════════════════════════════════════════
+  # USUÁRIOS
+  # ══════════════════════════════════════════
+  /usuarios:
+    post:
+      tags: [Usuários]
+      summary: Criar usuário
+      description: Cria um novo usuário (qualquer papel). Requer role `ADMIN`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsuarioDTO'
+      responses:
+        '201':
+          description: Usuário criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioResponse'
+        '401':
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroGenerico'
+        '403':
+          description: Acesso negado (não é ADMIN)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroGenerico'
+
+    get:
+      tags: [Usuários]
+      summary: Listar usuários (paginado)
+      description: Retorna página de usuários ordenada por e-mail. Requer role `ADMIN`.
+      parameters:
+        - name: pageNumber
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+          description: Número da página (base 0). Tamanho fixo de 5 registros por página.
+      responses:
+        '200':
+          description: Lista paginada de usuários
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageUsuarioLista'
+        '404':
+          description: Nenhum usuário encontrado
+        '401':
+          description: Não autenticado
+        '403':
+          description: Acesso negado
+
+  /usuarios/{id}:
+    get:
+      tags: [Usuários]
+      summary: Buscar usuário por ID
+      description: Retorna os dados de um usuário específico. Requer role `ADMIN`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID do usuário
+      responses:
+        '200':
+          description: Usuário encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioResponse'
+        '401':
+          description: Não autenticado
+        '403':
+          description: Acesso negado
+
+  # ══════════════════════════════════════════
+  # ESPÉCIES
+  # ══════════════════════════════════════════
+  /especies:
+    post:
+      tags: [Espécies]
+      summary: Criar espécie
+      description: Cadastra uma nova espécie. Requer role `ADMIN`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EspecieRequest'
+            example:
+              nome: "CAO"
+      responses:
+        '201':
+          description: Espécie criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Especie'
+        '401':
+          description: Não autenticado
+        '403':
+          description: Acesso negado
+
+    get:
+      tags: [Espécies]
+      summary: Listar todas as espécies
+      description: |
+        Retorna a lista completa de espécies cadastradas. **Endpoint público** — não exige autenticação.
+        Paginação não é aplicada (número de espécies é fixo por design).
+      security: []
+      responses:
+        '200':
+          description: Lista de espécies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Especie'
+
+  /especies/{id}:
+    get:
+      tags: [Espécies]
+      summary: Buscar espécie por ID
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID da espécie
+      responses:
+        '200':
+          description: Espécie encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Especie'
+        '404':
+          description: Espécie não encontrada
+
+    delete:
+      tags: [Espécies]
+      summary: Excluir espécie
+      description: Requer role `ADMIN`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Espécie removida com sucesso
+        '401':
+          description: Não autenticado
+        '403':
+          description: Acesso negado
+
+  /especies/atualizar:
+    put:
+      tags: [Espécies]
+      summary: Atualizar espécie
+      description: |
+        Atualiza os dados de uma espécie existente. O ID deve ser informado no corpo da requisição.
+        Requer role `ADMIN`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Especie'
+      responses:
+        '201':
+          description: Espécie atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Especie'
+        '400':
+          description: Espécie não encontrada para o ID informado
+        '401':
+          description: Não autenticado
+        '403':
+          description: Acesso negado
+
+  # ══════════════════════════════════════════
+  # ESPECIALIDADES
+  # ══════════════════════════════════════════
+  /especialidades:
+    post:
+      tags: [Especialidades]
+      summary: Criar especialidade
+      description: Cadastra uma nova especialidade veterinária. Requer role `ADMIN`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EspecialidadeVetRequest'
+            example:
+              nome: "CARDIOLOGIA"
+              descricao: "Diagnóstico e tratamento de doenças do coração em animais."
+      responses:
+        '201':
+          description: Especialidade criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EspecialidadeVet'
+        '401':
+          description: Não autenticado
+        '403':
+          description: Acesso negado
+
+    get:
+      tags: [Especialidades]
+      summary: Listar especialidades (paginado)
+      description: |
+        Retorna página de especialidades ordenada por nome. **Endpoint público**.
+        Tamanho de página fixo em 2 registros.
+      security: []
+      parameters:
+        - name: pageNumber
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+          description: Número da página (base 0)
+      responses:
+        '200':
+          description: Página de especialidades com links HATEOAS
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageEspecialidadeVetLista'
+        '404':
+          description: Nenhuma especialidade encontrada
+
+  /especialidades/{id}:
+    get:
+      tags: [Especialidades]
+      summary: Buscar especialidade por ID
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Especialidade encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EspecialidadeVet'
+        '204':
+          description: Especialidade não encontrada
+
+    delete:
+      tags: [Especialidades]
+      summary: Excluir especialidade
+      description: Requer role `ADMIN`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Especialidade removida com sucesso
+        '401':
+          description: Não autenticado
+        '403':
+          description: Acesso negado
+
+  /especialidades/atualizar:
+    put:
+      tags: [Especialidades]
+      summary: Atualizar especialidade
+      description: |
+        Atualiza os dados de uma especialidade existente. O ID deve ser informado no corpo.
+        Requer role `ADMIN`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EspecialidadeVet'
+      responses:
+        '201':
+          description: Especialidade atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EspecialidadeVet'
+        '400':
+          description: Especialidade não encontrada para o ID informado
+        '401':
+          description: Não autenticado
+        '403':
+          description: Acesso negado
