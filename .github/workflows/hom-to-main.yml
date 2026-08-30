@@ -14,13 +14,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Create PR to main
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr create \
-            --base main \
-            --head homolog \
-            --title "Merge homolog into main" \
-            --body "Pull Request criado automaticamente para promover homolog para main." \
-            || echo "PR já existe ou não foi possível criar."
+          if gh pr view homolog --base main >/dev/null 2>&1; then
+            echo "PR homolog → main já existe."
+          else
+            gh pr create \
+              --base main \
+              --head homolog \
+              --title "Merge homolog into main" \
+              --body "Pull Request criado automaticamente para promover homolog para main."
+          fi
