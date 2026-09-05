@@ -1,6 +1,6 @@
 package com.vetly.vetly_java.dto;
 
-import com.petly.petly_java.model.*;
+import com.vetly.vetly_java.model.*;
 import com.vetly.vetly_java.model.NomeEspecialidade;
 import com.vetly.vetly_java.model.NomeEspecie;
 import com.vetly.vetly_java.validation.ValueOfEnum;

@@ -1,8 +1,8 @@
 package com.vetly.vetly_java.mapper;
 
-import com.petly.petly_java.controller.VeterinarioController;
+import com.vetly.vetly_java.controller.VeterinarioController;
 import com.vetly.vetly_java.dto.VeterinarioLista;
-import com.petly.petly_java.dto.VeterinarioResponse;
+import com.vetly.vetly_java.dto.VeterinarioResponse;
 import com.vetly.vetly_java.model.Veterinario;
 import com.vetly.vetly_java.model.VeterinarioEspecialidade;
 import org.springframework.hateoas.Link;

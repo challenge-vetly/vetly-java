@@ -1,7 +1,7 @@
 package com.vetly.vetly_java.service;
 
 import com.vetly.vetly_java.dto.VeterinarioLista;
-import com.petly.petly_java.dto.VeterinarioResponse;
+import com.vetly.vetly_java.dto.VeterinarioResponse;
 import com.vetly.vetly_java.mapper.VeterinarioMapper;
 import com.vetly.vetly_java.model.NomeEspecialidade;
 import com.vetly.vetly_java.repository.VeterinarioRepository;
