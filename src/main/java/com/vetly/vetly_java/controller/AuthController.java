@@ -62,6 +62,11 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.registerVeterinario(registerVeterinarioDTO));
     }
 
+    @PostMapping("/register/tutor")
+    public ResponseEntity register(@Valid @RequestBody RegisterTutorDTO registerTutorDTO) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.registerTutor(registerTutorDTO));
+    }
+
     @PostMapping("/register/admin")
     public ResponseEntity register(@Valid @RequestBody RegisterAdminDTO registerAdminDTO) {
         if (usuarioRepository.findByEmail(registerAdminDTO.email()) != null) {

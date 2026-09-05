@@ -1,5 +1,6 @@
 package com.vetly.vetly_java.service;
 
+import com.vetly.vetly_java.dto.RegisterTutorDTO;
 import com.vetly.vetly_java.dto.RegisterVeterinarioDTO;
 import com.vetly.vetly_java.dto.UsuarioResponse;
 import com.vetly.vetly_java.mapper.UsuarioMapper;
@@ -28,6 +29,7 @@ public class AuthService implements UserDetailsService {
     private final VeterinarioRepository veterinarioRepository;
     private final VeterinarioEspecialidadeRepository veterinarioEspecialidadeRepository;
     private final VeterinarioEspecieRepository veterinarioEspecieRepository;
+    private final TutorRepository tutorRepository;
     private final UsuarioMapper mapper;
 
     @Autowired
@@ -36,6 +38,7 @@ public class AuthService implements UserDetailsService {
                        PessoaRepository pessoaRepository,
                        VeterinarioEspecialidadeRepository veterinarioEspecialidadeRepository,
                        VeterinarioEspecieRepository veterinarioEspecieRepository,
+                       TutorRepository tutorRepository,
                        UsuarioMapper mapper) {
         this.usuarioRepository = usuarioRepository;
         this.especialidadeVetRepository = especialidadeVetRepository;
@@ -45,6 +48,7 @@ public class AuthService implements UserDetailsService {
         this.pessoaRepository = pessoaRepository;
         this.veterinarioEspecialidadeRepository = veterinarioEspecialidadeRepository;
         this.veterinarioEspecieRepository = veterinarioEspecieRepository;
+        this.tutorRepository = tutorRepository;
     }
 
     @Override
@@ -110,23 +114,31 @@ public class AuthService implements UserDetailsService {
 
         return mapper.usuarioToResponse(usuario);
     }
-//
-//    public UsuarioResponse registerTutor(@Valid RegisterTutorDTO dto) {
-//        if (usuarioRepository.findByEmail(dto.email()) != null) {
-//            throw new IllegalArgumentException("Email já cadastrado");
-//        }
-//        var usuario = new Usuario();
-//        usuario.setEmail(dto.email());
-//        usuario.setSenhaHash(new BCryptPasswordEncoder().encode(dto.senha()));
-//        usuario.setRole(UserRole.TUTOR);
-//        usuarioRepository.save(usuario);
-//
-//        var tutor = new Tutor();
-//        tutor.setNome(dto.nome());
-//        tutor.setTelefone(dto.telefone());
-//        tutor.setUsuario(usuario);
-//        tutorRepository.save(tutor);
-//
-//        return mapper.usuarioToResponse(usuario);
-//    }
+
+    @Transactional
+    public UsuarioResponse registerTutor(@Valid RegisterTutorDTO dto) {
+        if (usuarioRepository.findByEmail(dto.email()) != null) {
+            throw new IllegalArgumentException("Email já cadastrado");
+        }
+
+        var usuario = new Usuario();
+        usuario.setEmail(dto.email());
+        usuario.setSenhaHash(new BCryptPasswordEncoder().encode(dto.senha()));
+        usuario.setId(UUID.randomUUID().toString());
+        usuario.setRole(UserRole.TUTOR);
+        usuario.setFlagAtivo("S");
+        usuarioRepository.save(usuario);
+
+        var pessoa = new Pessoa();
+        pessoa.setId(UUID.randomUUID().toString());
+        pessoa.setNome(dto.nome());
+        pessoa.setTelefone(dto.telefone());
+        pessoa.setCpf(dto.cpf());
+        pessoaRepository.save(pessoa);
+
+        var tutor = new Tutor(UUID.randomUUID(), usuario, pessoa);
+        tutorRepository.save(tutor);
+
+        return mapper.usuarioToResponse(usuario);
+    }
 }
