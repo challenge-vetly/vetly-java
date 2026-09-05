@@ -54,6 +54,9 @@ public class Animal {
     private String medicacoesEmUso;
 
 
+    public Animal() {
+    }
+
     public Animal(UUID id, String nome, String raca, Sexo sexo, LocalDate dataNascimento, BigDecimal peso, Tutor tutor, Especie especie,
                   String urlFoto, String castrado, String condicoesPreexistentes, String alergias, String medicacoesEmUso) {
         this.id = id;
