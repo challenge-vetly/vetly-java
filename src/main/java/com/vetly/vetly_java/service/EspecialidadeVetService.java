@@ -2,7 +2,7 @@ package com.vetly.vetly_java.service;
 
 import com.vetly.vetly_java.dto.EspecialidadeVetLista;
 import com.vetly.vetly_java.dto.EspecialidadeVetRequest;
-import com.petly.petly_java.mapper.EspecialidadeVetMapper;
+import com.vetly.vetly_java.mapper.EspecialidadeVetMapper;
 import com.vetly.vetly_java.model.EspecialidadeVet;
 import com.vetly.vetly_java.repository.EspecialidadeVetRepository;
 import org.springframework.beans.factory.annotation.Autowired;

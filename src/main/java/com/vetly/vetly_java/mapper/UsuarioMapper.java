@@ -1,8 +1,8 @@
 package com.vetly.vetly_java.mapper;
 
-import com.petly.petly_java.controller.UsuarioController;
+import com.vetly.vetly_java.controller.UsuarioController;
 import com.vetly.vetly_java.dto.UsuarioDTO;
-import com.petly.petly_java.dto.UsuarioLista;
+import com.vetly.vetly_java.dto.UsuarioLista;
 import com.vetly.vetly_java.dto.UsuarioResponse;
 import com.vetly.vetly_java.model.UserRole;
 import com.vetly.vetly_java.model.Usuario;
