@@ -38,8 +38,24 @@ public class Animal {
     @JoinColumn(name = "TB_ESPECIE_ID_ESPECIE", nullable = false)
     private Especie especie;
 
+    @Column(name = "URL_FOTO_ANIMAL", length = 500)
+    private String urlFoto;
 
-    public Animal(UUID id, String nome, String raca, Sexo sexo, LocalDate dataNascimento, BigDecimal peso, Tutor tutor, Especie especie) {
+    @Column(name = "FL_CASTRADO", nullable = false, length = 1)
+    private String castrado;
+
+    @Column(name = "DS_CONDICOES_PREEXIST", length = 1000)
+    private String condicoesPreexistentes;
+
+    @Column(name = "DS_ALERGIAS", length = 1000)
+    private String alergias;
+
+    @Column(name = "DS_MEDICACOES_EM_USO", length = 1000)
+    private String medicacoesEmUso;
+
+
+    public Animal(UUID id, String nome, String raca, Sexo sexo, LocalDate dataNascimento, BigDecimal peso, Tutor tutor, Especie especie,
+                  String urlFoto, String castrado, String condicoesPreexistentes, String alergias, String medicacoesEmUso) {
         this.id = id;
         this.nome = nome;
         this.raca = raca;
@@ -48,6 +64,11 @@ public class Animal {
         this.peso = peso;
         this.tutor = tutor;
         this.especie = especie;
+        this.urlFoto = urlFoto;
+        this.castrado = castrado;
+        this.condicoesPreexistentes = condicoesPreexistentes;
+        this.alergias = alergias;
+        this.medicacoesEmUso = medicacoesEmUso;
     }
 
     public UUID getId() {
@@ -112,5 +133,45 @@ public class Animal {
 
     public void setEspecie(Especie especie) {
         this.especie = especie;
+    }
+
+    public String getUrlFoto() {
+        return urlFoto;
+    }
+
+    public void setUrlFoto(String urlFoto) {
+        this.urlFoto = urlFoto;
+    }
+
+    public String getCastrado() {
+        return castrado;
+    }
+
+    public void setCastrado(String castrado) {
+        this.castrado = castrado;
+    }
+
+    public String getCondicoesPreexistentes() {
+        return condicoesPreexistentes;
+    }
+
+    public void setCondicoesPreexistentes(String condicoesPreexistentes) {
+        this.condicoesPreexistentes = condicoesPreexistentes;
+    }
+
+    public String getAlergias() {
+        return alergias;
+    }
+
+    public void setAlergias(String alergias) {
+        this.alergias = alergias;
+    }
+
+    public String getMedicacoesEmUso() {
+        return medicacoesEmUso;
+    }
+
+    public void setMedicacoesEmUso(String medicacoesEmUso) {
+        this.medicacoesEmUso = medicacoesEmUso;
     }
 }
