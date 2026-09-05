@@ -1,7 +1,7 @@
 package com.vetly.vetly_java.service;
 
 import com.vetly.vetly_java.dto.UsuarioDTO;
-import com.petly.petly_java.dto.UsuarioLista;
+import com.vetly.vetly_java.dto.UsuarioLista;
 import com.vetly.vetly_java.dto.UsuarioResponse;
 import com.vetly.vetly_java.mapper.UsuarioMapper;
 import com.vetly.vetly_java.model.Usuario;
