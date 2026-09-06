@@ -62,12 +62,7 @@ public class AcessoProntuarioService {
         Veterinario veterinario = requireVeterinario(usuario);
         Animal animal = findAnimal(animalId);
 
-        boolean temVinculoClinico = consultaRepository
-                .existsByAnimalAndVeterinarioAndStatusNot(animal, veterinario, StatusConsulta.CANCELADA);
-        if (!temVinculoClinico) {
-            throw new AccessDeniedException(
-                    "Colmeia: veterinário não possui nenhuma consulta com este animal — acesso não concedido");
-        }
+        exigirVinculoClinico(animal, veterinario);
 
         boolean consentimentoRedeAtivo = animal.getTutor().isConsentimentoRede();
         BaseAcesso base = consentimentoRedeAtivo ? BaseAcesso.CONSENTIMENTO_REDE : BaseAcesso.ATENDIMENTO_DIRETO;
@@ -81,6 +76,29 @@ public class AcessoProntuarioService {
         return entradas.stream().map(this::toResponse).toList();
     }
 
+    /**
+     * RN-064: gate de vínculo clínico da Colmeia — usado tanto para o histórico
+     * (EvolucaoClinica) quanto para o Prontuário (ProntuarioService).
+     */
+    public void exigirVinculoClinico(Animal animal, Veterinario veterinario) {
+        boolean temVinculoClinico = consultaRepository
+                .existsByAnimalAndVeterinarioAndStatusNot(animal, veterinario, StatusConsulta.CANCELADA);
+        if (!temVinculoClinico) {
+            throw new AccessDeniedException(
+                    "Colmeia: veterinário não possui nenhuma consulta com este animal — acesso não concedido");
+        }
+    }
+
+    /**
+     * RN-067: todo acesso de um veterinário ao prontuário/histórico do animal
+     * pela Colmeia gera log, visível ao Responsável.
+     */
+    public void registrarAcesso(Animal animal, Veterinario veterinario, BaseAcesso base, String contexto) {
+        LogAcessoProntuario log = new LogAcessoProntuario(
+                UUID.randomUUID(), LocalDateTime.now(), contexto, base, animal, veterinario);
+        logAcessoProntuarioRepository.save(log);
+    }
+
     public Page<LogAcessoProntuarioResponse> logsDeAcesso(UUID animalId, Pageable pageable) {
         Tutor tutor = requireTutor(currentUsuario());
         Animal animal = findAnimal(animalId);
@@ -89,12 +107,6 @@ public class AcessoProntuarioService {
         }
 
         return logAcessoProntuarioRepository.findByAnimal(animal, pageable).map(this::toLogResponse);
-    }
-
-    private void registrarAcesso(Animal animal, Veterinario veterinario, BaseAcesso base, String contexto) {
-        LogAcessoProntuario log = new LogAcessoProntuario(
-                UUID.randomUUID(), LocalDateTime.now(), contexto, base, animal, veterinario);
-        logAcessoProntuarioRepository.save(log);
     }
 
     private EvolucaoClinicaResponse toResponse(EvolucaoClinica evolucao) {
