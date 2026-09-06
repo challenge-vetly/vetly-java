@@ -30,7 +30,8 @@ public class SecurityConfigurations {
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/v3/api-docs/**",
-            "/v3/api-docs.yaml"
+            "/v3/api-docs.yaml",
+            "/swagger.yaml"
     };
 
     private static final String[] PUBLIC_GET = {

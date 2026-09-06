@@ -33,6 +33,16 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+// O swagger.yaml da raiz e a documentacao OpenAPI escrita a mao (regras de negocio +
+// mocks do roteiro de teste). Copiamos para os resources para que o OpenApiDocController
+// possa servi-lo em /swagger.yaml, ao lado da spec gerada pelo springdoc. Fonte unica:
+// o arquivo da raiz do repositorio.
+tasks.named('processResources') {
+	from('swagger.yaml') {
+		into 'openapi'
+	}
+}
+
 tasks.named('test') {
 	useJUnitPlatform()
 }
