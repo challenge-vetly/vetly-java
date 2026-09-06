@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import java.util.UUID;
 
 @Entity
+@Table(name = "TB_EVOLUCAO_CLINICA")
 public class EvolucaoClinica {
     @Id
     @Column(name = "ID_EVOLUCAO_CLINICA")
@@ -18,10 +19,21 @@ public class EvolucaoClinica {
     @JoinColumn(name = "TB_CONSULTA_ID_CONSULTA", nullable = false, unique = true)
     private Consulta consulta;
 
+    @Column(name = "FL_OCULTO_RESPONSAVEL", nullable = false, length = 1)
+    private String ocultoResponsavel;
+
+    @Column(name = "FL_ALERTA_SEGURANCA", nullable = false, length = 1)
+    private String alertaSeguranca;
+
+    public EvolucaoClinica() {
+    }
+
     public EvolucaoClinica(UUID id, String anotacoes, Consulta consulta) {
         this.id = id;
         this.anotacoes = anotacoes;
         this.consulta = consulta;
+        this.ocultoResponsavel = "N";
+        this.alertaSeguranca = "N";
     }
 
     public UUID getId() {
@@ -46,5 +58,21 @@ public class EvolucaoClinica {
 
     public void setConsulta(Consulta consulta) {
         this.consulta = consulta;
+    }
+
+    public boolean isOcultoResponsavel() {
+        return "S".equals(ocultoResponsavel);
+    }
+
+    public void setOcultoResponsavel(String ocultoResponsavel) {
+        this.ocultoResponsavel = ocultoResponsavel;
+    }
+
+    public boolean isAlertaSeguranca() {
+        return "S".equals(alertaSeguranca);
+    }
+
+    public void setAlertaSeguranca(String alertaSeguranca) {
+        this.alertaSeguranca = alertaSeguranca;
     }
 }
