@@ -452,6 +452,14 @@ Regras de manutenção:
 - `baseline-on-migrate=true` porque o schema da FIAP já existia criado à mão: a migration
   `V1` não é reexecutada nesse ambiente, mas roda normalmente em um schema vazio.
 - Ao criar uma migration nova, replique o mesmo DDL no fim de `vetly-database/DDL.txt`.
+- **Nunca edite uma migration já aplicada.** O checksum do Flyway cobre o arquivo inteiro,
+  comentários inclusive, então qualquer alteração derruba o start com *checksum mismatch*.
+
+> ⚠️ **Ação pontual necessária nos schemas onde a `V5` já rodou.** O comentário de cabeçalho
+> da `V5` descrevia `RESULTADO_ENVIADO` como "o vet recebeu/anexou", o oposto do que o código
+> faz, e foi corrigido — o que muda o checksum dela. Antes do próximo start nesses schemas,
+> rode um `flyway repair` (Flyway CLI ou plugin Gradle) para regravar o checksum em
+> `flyway_schema_history`. Schemas novos não são afetados.
 
 ---
 
