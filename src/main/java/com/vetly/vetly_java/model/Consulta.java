@@ -35,6 +35,9 @@ public class Consulta {
     @JoinColumn(name = "TB_ANIMAL_ID_ANIMAL")
     private Animal animal;
 
+    public Consulta() {
+    }
+
     public Consulta(UUID id, LocalDateTime dataHora, StatusConsulta status, BigDecimal valor, String observacao, Veterinario veterinario, Animal animal) {
         this.id = id;
         this.dataHora = dataHora;
