@@ -1,29 +1,83 @@
 openapi: 3.0.3
 info:
-  title: Vetly — API Backend
+  title: Vetly — API Backend (Java)
+  version: 1.0.0
   description: |
-    API REST do backend da plataforma **Vetly**, um sistema de gestão veterinária que conecta tutores, veterinários e clínicas.
+    API REST do backend **Vetly** em Java/Spring Boot — fatia de domínio
+    **Animal · Consulta · Prontuário · Colmeia · Exame**, mais Auth, Usuário,
+    Espécie, Especialidade e Veterinário.
+
+    Este serviço é uma implementação **independente** do backend `.NET`: identidade,
+    banco e dados são próprios, não há integração entre os dois.
 
     ## Autenticação
-    A API utiliza **JWT Bearer Token**. Para acessar endpoints protegidos:
-    1. Faça login em `POST /auth/login` com suas credenciais.
-    2. Copie o token retornado.
-    3. Inclua o cabeçalho `Authorization: Bearer <token>` nas requisições seguintes.
+    JWT Bearer. Fluxo:
+    1. `POST /auth/login` com e-mail e senha.
+    2. Copie o `token` da resposta.
+    3. Envie `Authorization: Bearer <token>` nas demais requisições
+       (no Swagger UI: botão **Authorize**).
 
-    ## Papéis de usuário
-    | Role | Descrição |
-    |------|-----------|
-    | `ADMIN` | Acesso total — gerencia usuários, espécies e especialidades |
-    | `VETERINARIO` | Acesso autenticado — operações clínicas |
-    | `TUTOR` | Acesso autenticado — operações do tutor |
+    ## Papéis
+    | Role | O que faz nesta API |
+    |------|---------------------|
+    | `ADMIN` | Gerencia usuários, espécies e especialidades |
+    | `TUTOR` | Cadastra animais, agenda/cancela consultas, lê prontuário e logs de acesso, gerencia consentimento |
+    | `VETERINARIO` | Marca consulta como realizada/não compareceu, escreve prontuário, solicita e libera exames |
 
-    ## Regras de acesso
+    ## Regras de acesso (Spring Security)
     - `POST /auth/**` — público
-    - `GET /especies` e `GET /especialidades` — público
-    - `/usuarios`, `POST/PUT/DELETE /especies`, `POST/PUT/DELETE /especialidades` — somente `ADMIN`
-    - Demais endpoints — requerem autenticação
+    - `GET /especies`, `GET /especialidades`, `GET /veterinarios/**` — público
+    - `/usuarios`, `/especies`, `/especialidades` (POST/PUT/DELETE) — somente `ADMIN`
+    - Demais rotas — autenticado; o **escopo por dono** é aplicado no service
+      (tutor só enxerga os próprios animais/consultas; vet só as consultas em que é o designado)
 
-  version: 0.1.0
+    ## Regras de negócio implementadas
+    A numeração `RN-xxx` segue `vetly-qa/vetly-tech.md` (fonte de verdade).
+    Cada operação afetada cita a RN na própria descrição.
+
+    | RN | Onde aparece nesta API |
+    |----|------------------------|
+    | RN-003 | `POST /consultas` — consulta atribuída diretamente ao vet escolhido |
+    | RN-008 | `PATCH /consultas/{id}/realizar` — encerramento por ação do vet |
+    | RN-012 | `PATCH /consultas/{id}/cancelar` e `/reagendar` — ação do Responsável |
+    | RN-038 | Máquina de estados `AGENDADA → REALIZADA \| CANCELADA \| NAO_COMPARECEU` |
+    | RN-060/062 | `PUT /tutores/me/consentimento` — aceite LGPD com data/hora e revogação |
+    | RN-063 | `/animais/{id}/prontuario` — prontuário pendurado no animal, não no vet |
+    | RN-064/066 | `GET /animais/{id}/historico` — Colmeia: vínculo clínico concede acesso; sem consentimento de rede, só o que o vet produziu |
+    | RN-067 | `GET /animais/{id}/logs-acesso` — todo acesso de vet é logado e visível ao tutor |
+    | RN-068 | Histórico do tutor oculta registros marcados, **exceto** alertas de segurança |
+    | RN-081 | `peso` obrigatório em `POST/PUT /animais` |
+    | RN-088/089 | `POST /animais/{id}/prontuario/correcoes` — original nunca sobrescrito; justificativa fora da janela de 24h |
+    | RN-103 | `POST /consultas/{id}/solicitacoes-exame` — exame solicitado na plataforma e vinculado ao histórico |
+    | RN-104 | `PATCH /solicitacoes-exame/itens/{id}/liberar` — resultado só chega ao tutor após liberação explícita do vet |
+
+    ## Roteiro de teste (os exemplos abaixo formam um cenário único)
+    Todos os `example` deste documento usam os mesmos IDs e são encadeáveis:
+
+    1. `POST /auth/register/tutor` → tutor `maria.souza@vetly.com.br` / `Tutor@123`
+    2. `POST /auth/register/veterinario` → vet `dra.ana@vetly.com.br` / `Senha@456`
+    3. `POST /auth/login` (admin) → `POST /especies` com `{"nome":"CAO"}` → guarde o `id` da espécie
+    4. `POST /auth/login` (tutor) → `POST /animais` (Thor) → guarde o `id`
+    5. `PUT /tutores/me/consentimento` → `lgpdAceito: true`, `consentimentoRede: true`
+    6. `POST /consultas` (tutor, com `animalId` + `veterinarioId`) → status `AGENDADA`
+    7. `POST /auth/login` (vet) → `GET /animais/{animalId}/historico` (Colmeia concede acesso e grava log)
+    8. `POST /animais/{animalId}/prontuario` → `POST .../prontuario/correcoes`
+    9. `POST /consultas/{consultaId}/solicitacoes-exame` → `PATCH .../resultado` → `POST .../anexos` → `PATCH .../liberar`
+    10. `PATCH /consultas/{consultaId}/realizar` (vet)
+    11. Volte como tutor: `GET /animais/{animalId}/logs-acesso` e `GET /consultas/{consultaId}/solicitacoes-exame`
+
+    ## Convenção de erros
+    Todo erro tratado responde `{"error": "<mensagem>"}`, exceto falha de validação
+    de payload, que responde `{"<campo>": "<mensagem>"}`.
+
+    | Status | Quando |
+    |--------|--------|
+    | `400` | Bean Validation falhou no corpo ou no parâmetro |
+    | `401` | Sem token / token inválido — `{"error":"Recurso protegido"}` |
+    | `403` | Papel errado ou recurso de outro dono (`AccessDeniedException`) |
+    | `404` | Entidade não encontrada (`EntityNotFoundException`) ou rota inexistente |
+    | `409` | Transição de estado inválida ou violação de unicidade (`IllegalArgumentException`, `DataIntegrityViolationException`) |
+    | `500` | Erro não tratado |
   contact:
     name: Equipe Vetly
   license:
@@ -35,13 +89,30 @@ servers:
 
 tags:
   - name: Autenticação
-    description: Login e registro de usuários
+    description: Login e auto-registro de tutor, veterinário e administrador
   - name: Usuários
-    description: Gerenciamento de usuários (apenas ADMIN)
+    description: Gerenciamento de contas (apenas ADMIN)
   - name: Espécies
-    description: Cadastro de espécies de animais
+    description: Tabela de domínio de espécies animais
   - name: Especialidades
-    description: Cadastro de especialidades veterinárias
+    description: Tabela de domínio de especialidades veterinárias
+  - name: Veterinários
+    description: Consulta pública ao diretório de veterinários
+  - name: Tutores
+    description: Consentimento LGPD e de rede do tutor autenticado (RN-060/062)
+  - name: Animais
+    description: CRUD do animal, escopado ao tutor dono (RN-081)
+  - name: Consultas
+    description: Agendamento e máquina de estados da consulta (RN-003/008/012/038)
+  - name: Colmeia
+    description: Acesso ao histórico clínico e log de acessos (RN-064 a RN-068)
+  - name: Prontuário
+    description: Prontuário do animal com versionamento original × correção (RN-063/088/089)
+  - name: Exames
+    description: Solicitação, resultado, anexo e liberação ao Responsável (RN-103/104)
+
+security:
+  - bearerAuth: []
 
 components:
   securitySchemes:
@@ -49,238 +120,114 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Token JWT obtido via `POST /auth/login`
+      description: Token JWT obtido em `POST /auth/login`.
+
+  parameters:
+    PageNumber:
+      name: pageNumber
+      in: query
+      required: false
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
+      description: Página (base 0). O tamanho da página é fixo por endpoint.
+      example: 0
+
+  responses:
+    NaoAutenticado:
+      description: Token ausente ou inválido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          example:
+            error: Recurso protegido
+    AcessoNegado:
+      description: Papel incorreto ou recurso pertencente a outro usuário
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          example:
+            error: Animal não pertence ao tutor autenticado
+    NaoEncontrado:
+      description: Recurso não encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          example:
+            error: "Animal não encontrado: 9a1c7f52-4b6d-4f0e-8f31-2c6a5d7e1b04"
+    ErroValidacao:
+      description: "Falha de Bean Validation — um par `campo: mensagem` por erro"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErroValidacao'
+          example:
+            peso: deve ser maior que zero
+            nome: nao pode ser vazio
 
   schemas:
 
-    # ─── Auth ───────────────────────────────────────────────
-    AuthDTO:
+    # ─── Erros ───────────────────────────────────────────────
+    Erro:
       type: object
-      required: [email, senha]
       properties:
-        email:
+        error:
           type: string
-          format: email
-          example: veterinario@vetly.com.br
-        senha:
-          type: string
-          description: |
-            Mínimo 8 caracteres; deve conter letra maiúscula, letra minúscula,
-            número e caractere especial (@$!%*?&).
-          example: "Senha@123"
+          example: Acesso negado
 
-    LoginResponseDTO:
+    ErroValidacao:
       type: object
-      properties:
-        token:
-          type: string
-          description: JWT de acesso
-          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-
-    RegisterVeterinarioDTO:
-      type: object
-      required: [email, senha, crmv, nome, cpf, telefone, especialidades, especies]
-      properties:
-        email:
-          type: string
-          format: email
-          example: joao.silva@vetly.com.br
-        senha:
-          type: string
-          example: "Senha@123"
-        crmv:
-          type: string
-          description: Número do CRMV (registro profissional veterinário)
-          example: "SP-12345"
-        nome:
-          type: string
-          maxLength: 100
-          example: "Dr. João Silva"
-        cpf:
-          type: string
-          description: CPF válido (somente números)
-          example: "12345678909"
-        telefone:
-          type: string
-          description: "Formato aceito: (11) 91234-5678"
-          example: "(11) 91234-5678"
-        especialidades:
-          type: array
-          description: Lista de especialidades veterinárias (valores do enum NomeEspecialidade)
-          items:
-            $ref: '#/components/schemas/NomeEspecialidade'
-          example: ["CARDIOLOGIA", "CIRURGIA"]
-        especies:
-          type: array
-          description: Lista de espécies atendidas (valores do enum NomeEspecie)
-          items:
-            $ref: '#/components/schemas/NomeEspecie'
-          example: ["CAO", "GATO"]
-
-    RegisterAdminDTO:
-      type: object
-      required: [email, senha]
-      properties:
-        email:
-          type: string
-          format: email
-          example: admin@vetly.com.br
-        senha:
-          type: string
-          example: "Admin@123"
-
-    # ─── Usuário ─────────────────────────────────────────────
-    UsuarioDTO:
-      type: object
-      required: [email, role, flagAtivo, senha]
-      properties:
-        email:
-          type: string
-          format: email
-          example: novo@vetly.com.br
-        role:
-          $ref: '#/components/schemas/UserRole'
-        flagAtivo:
-          type: string
-          enum: [S, N]
-          description: "'S' = ativo, 'N' = inativo"
-          example: "S"
-        senha:
-          type: string
-          example: "Senha@123"
-
-    UsuarioResponse:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-        email:
-          type: string
-          format: email
-          example: joao@vetly.com.br
-        role:
-          $ref: '#/components/schemas/UserRole'
-        flagAtivo:
-          type: string
-          enum: [S, N]
-          example: "S"
-
-    UsuarioLista:
-      type: object
-      description: Projeção resumida para listagens paginadas
-      properties:
-        email:
-          type: string
-          format: email
-          example: joao@vetly.com.br
-        link:
-          $ref: '#/components/schemas/HateoasLink'
-
-    PageUsuarioLista:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            $ref: '#/components/schemas/UsuarioLista'
-        totalElements:
-          type: integer
-          example: 42
-        totalPages:
-          type: integer
-          example: 9
-        number:
-          type: integer
-          description: Página atual (base 0)
-          example: 0
-        size:
-          type: integer
-          example: 5
-
-    # ─── Espécie ─────────────────────────────────────────────
-    EspecieRequest:
-      type: object
-      required: [nome]
-      properties:
-        nome:
-          $ref: '#/components/schemas/NomeEspecie'
-
-    Especie:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-          example: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
-        nome:
-          $ref: '#/components/schemas/NomeEspecie'
-
-    # ─── Especialidade ───────────────────────────────────────
-    EspecialidadeVetRequest:
-      type: object
-      required: [nome, descricao]
-      properties:
-        nome:
-          $ref: '#/components/schemas/NomeEspecialidade'
-        descricao:
-          type: string
-          maxLength: 150
-          example: "Diagnóstico e tratamento de doenças cardíacas em animais."
-
-    EspecialidadeVet:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-          example: "c3d4e5f6-a7b8-9012-cdef-123456789012"
-        nome:
-          $ref: '#/components/schemas/NomeEspecialidade'
-        descricao:
-          type: string
-          example: "Diagnóstico e tratamento de doenças cardíacas em animais."
-
-    EspecialidadeVetLista:
-      type: object
-      description: Projeção resumida para listagens paginadas
-      properties:
-        nome:
-          $ref: '#/components/schemas/NomeEspecialidade'
-        link:
-          $ref: '#/components/schemas/HateoasLink'
-
-    PageEspecialidadeVetLista:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            $ref: '#/components/schemas/EspecialidadeVetLista'
-        totalElements:
-          type: integer
-          example: 21
-        totalPages:
-          type: integer
-          example: 11
-        number:
-          type: integer
-          example: 0
-        size:
-          type: integer
-          example: 2
+      additionalProperties:
+        type: string
+      description: Mapa `campo → mensagem` produzido pelo `GlobalExceptionHandler`.
 
     # ─── Enums ───────────────────────────────────────────────
     UserRole:
       type: string
       enum: [ADMIN, TUTOR, VETERINARIO]
       description: Papel do usuário no sistema
+      example: TUTOR
+
+    Sexo:
+      type: string
+      enum: [M, F]
+      example: M
+
+    StatusConsulta:
+      type: string
+      enum: [AGENDADA, CANCELADA, REALIZADA, NAO_COMPARECEU]
+      description: |
+        RN-038 (adaptado ao escopo Java — sem `EM_CHECKOUT`, que só existe por causa
+        do pagamento). Toda transição parte obrigatoriamente de `AGENDADA`.
+      example: AGENDADA
+
+    StatusExame:
+      type: string
+      enum: [SOLICITADO, AGUARDANDO_RESULTADO, ANALISADO, RESULTADO_ENVIADO, CANCELADO]
+      description: |
+        Ciclo do item de exame: `SOLICITADO` → (resultado registrado) `ANALISADO`
+        → (liberação explícita ao Responsável, RN-104) `RESULTADO_ENVIADO`.
+        `RESULTADO_ENVIADO` significa **liberado ao Responsável**, não "enviado ao vet".
+      example: SOLICITADO
+
+    BaseAcesso:
+      type: string
+      enum: [CONSENTIMENTO_REDE, ATENDIMENTO_DIRETO]
+      description: |
+        Base legal registrada no log de acesso (RN-067):
+        `CONSENTIMENTO_REDE` quando o tutor autorizou o compartilhamento em rede
+        (vet vê o histórico completo — RN-064); `ATENDIMENTO_DIRETO` quando não há
+        consentimento e o vet vê apenas o que produziu (RN-066).
+      example: CONSENTIMENTO_REDE
 
     NomeEspecie:
       type: string
       enum: [AVE, REPTIL, MAMIFERO, ANFIBIO, PEIXE, EQUIDEO, CAO, GATO]
-      description: Espécie do animal
+      example: CAO
 
     NomeEspecialidade:
       type: string
@@ -306,9 +253,15 @@ components:
         - PEQUENOS_ANIMAIS
         - PNEUMOLOGIA
         - RADIOLOGIA
-      description: Especialidade veterinária
+      example: CARDIOLOGIA
 
-    # ─── HATEOAS ─────────────────────────────────────────────
+    Senha:
+      type: string
+      description: |
+        Mínimo 8 caracteres, com maiúscula, minúscula, número e caractere
+        especial (`@$!%*?&`).
+      example: Senha@456
+
     HateoasLink:
       type: object
       description: Link HATEOAS para o recurso completo
@@ -316,39 +269,786 @@ components:
         href:
           type: string
           format: uri
-          example: "http://localhost:8080/especialidades/c3d4e5f6-a7b8-9012-cdef-123456789012"
+          example: http://localhost:8080/especialidades/c3d4e5f6-a7b8-9012-cdef-123456789012
 
-    # ─── Erros ───────────────────────────────────────────────
-    ErroGenerico:
+    Pagina:
+      type: object
+      description: Envelope de paginação do Spring Data (campos principais)
+      properties:
+        totalElements:
+          type: integer
+          example: 3
+        totalPages:
+          type: integer
+          example: 1
+        number:
+          type: integer
+          description: Página atual (base 0)
+          example: 0
+        size:
+          type: integer
+          example: 10
+        first:
+          type: boolean
+          example: true
+        last:
+          type: boolean
+          example: true
+
+    # ─── Auth ───────────────────────────────────────────────
+    AuthDTO:
+      type: object
+      required: [email, senha]
+      properties:
+        email:
+          type: string
+          format: email
+          example: maria.souza@vetly.com.br
+        senha:
+          $ref: '#/components/schemas/Senha'
+
+    LoginResponseDTO:
       type: object
       properties:
-        error:
+        token:
           type: string
-          example: "Recurso protegido"
+          description: JWT de acesso
+          example: eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJ2ZXRseS1qYXZhIn0.OZ4dJ9mQq2sJ8XKfPZK1oJmWUw3s9L6r0Cq7c8v1kAY
 
-    ErroValidacao:
+    RegisterTutorDTO:
+      type: object
+      required: [email, senha, nome, cpf, telefone]
+      properties:
+        email:
+          type: string
+          format: email
+          example: maria.souza@vetly.com.br
+        senha:
+          $ref: '#/components/schemas/Senha'
+        nome:
+          type: string
+          maxLength: 100
+          example: Maria Souza
+        cpf:
+          type: string
+          description: CPF válido, somente números (validado por `@CPF`)
+          example: "52998224725"
+        telefone:
+          type: string
+          description: "Formato aceito: (11) 91234-5678"
+          example: "(11) 98765-4321"
+
+    RegisterVeterinarioDTO:
+      type: object
+      required: [email, senha, crmv, nome, cpf, telefone, especialidades, especies]
+      properties:
+        email:
+          type: string
+          format: email
+          example: dra.ana@vetly.com.br
+        senha:
+          $ref: '#/components/schemas/Senha'
+        crmv:
+          type: string
+          description: Registro profissional. **Não é validado junto ao conselho** — RN-107 está fora do escopo do Java.
+          example: SP-98765
+        nome:
+          type: string
+          maxLength: 100
+          example: Dra. Ana Oliveira
+        cpf:
+          type: string
+          example: "98765432100"
+        telefone:
+          type: string
+          example: "(11) 97654-3210"
+        especialidades:
+          type: array
+          items:
+            $ref: '#/components/schemas/NomeEspecialidade'
+          example: [CARDIOLOGIA, PEQUENOS_ANIMAIS]
+        especies:
+          type: array
+          items:
+            $ref: '#/components/schemas/NomeEspecie'
+          example: [CAO, GATO]
+
+    RegisterAdminDTO:
+      type: object
+      required: [email, senha]
+      properties:
+        email:
+          type: string
+          format: email
+          example: admin@vetly.com.br
+        senha:
+          $ref: '#/components/schemas/Senha'
+
+    # ─── Usuário ─────────────────────────────────────────────
+    UsuarioDTO:
+      type: object
+      required: [email, role, flagAtivo, senha]
+      properties:
+        email:
+          type: string
+          format: email
+          example: novo@vetly.com.br
+        role:
+          $ref: '#/components/schemas/UserRole'
+        flagAtivo:
+          type: string
+          enum: [S, N]
+          example: "S"
+        senha:
+          $ref: '#/components/schemas/Senha'
+
+    UsuarioResponse:
       type: object
       properties:
-        campo:
+        id:
           type: string
-          example: "email"
-        mensagem:
+          format: uuid
+          example: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+        email:
           type: string
-          example: "Email inválido"
+          format: email
+          example: maria.souza@vetly.com.br
+        role:
+          $ref: '#/components/schemas/UserRole'
+        flagAtivo:
+          type: string
+          enum: [S, N]
+          example: "S"
 
-security:
-  - bearerAuth: []
+    UsuarioLista:
+      type: object
+      description: Projeção resumida para listagens paginadas
+      properties:
+        email:
+          type: string
+          format: email
+          example: maria.souza@vetly.com.br
+        link:
+          $ref: '#/components/schemas/HateoasLink'
+
+    PageUsuarioLista:
+      allOf:
+        - $ref: '#/components/schemas/Pagina'
+        - type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/UsuarioLista'
+
+    # ─── Espécie / Especialidade ─────────────────────────────
+    EspecieRequest:
+      type: object
+      required: [nome]
+      properties:
+        nome:
+          $ref: '#/components/schemas/NomeEspecie'
+
+    Especie:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: b2c3d4e5-f6a7-8901-bcde-f12345678901
+        nome:
+          $ref: '#/components/schemas/NomeEspecie'
+
+    EspecialidadeVetRequest:
+      type: object
+      required: [nome, descricao]
+      properties:
+        nome:
+          $ref: '#/components/schemas/NomeEspecialidade'
+        descricao:
+          type: string
+          maxLength: 150
+          example: Diagnóstico e tratamento de doenças do coração em animais.
+
+    EspecialidadeVet:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: c3d4e5f6-a7b8-9012-cdef-123456789012
+        nome:
+          $ref: '#/components/schemas/NomeEspecialidade'
+        descricao:
+          type: string
+          example: Diagnóstico e tratamento de doenças do coração em animais.
+
+    EspecialidadeVetLista:
+      type: object
+      properties:
+        nome:
+          $ref: '#/components/schemas/NomeEspecialidade'
+        link:
+          $ref: '#/components/schemas/HateoasLink'
+
+    PageEspecialidadeVetLista:
+      allOf:
+        - $ref: '#/components/schemas/Pagina'
+        - type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/EspecialidadeVetLista'
+
+    # ─── Veterinário ─────────────────────────────────────────
+    VeterinarioResponse:
+      type: object
+      properties:
+        nome:
+          type: string
+          example: Dra. Ana Oliveira
+        crmv:
+          type: string
+          example: SP-98765
+        especialidades:
+          type: array
+          items:
+            type: string
+          example: [CARDIOLOGIA, PEQUENOS_ANIMAIS]
+
+    VeterinarioLista:
+      type: object
+      properties:
+        nome:
+          type: string
+          example: Dra. Ana Oliveira
+        crmv:
+          type: string
+          example: SP-98765
+        especialidadeVet:
+          type: array
+          items:
+            $ref: '#/components/schemas/EspecialidadeVet'
+        link:
+          $ref: '#/components/schemas/HateoasLink'
+
+    PageVeterinarioLista:
+      allOf:
+        - $ref: '#/components/schemas/Pagina'
+        - type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/VeterinarioLista'
+
+    # ─── Tutor / consentimento (RN-060 a RN-062) ─────────────
+    TutorConsentimentoRequest:
+      type: object
+      required: [lgpdAceito, consentimentoRede]
+      properties:
+        lgpdAceito:
+          type: boolean
+          description: Aceite do tratamento de dados. Grava a data no primeiro `true` (RN-060).
+          example: true
+        consentimentoRede:
+          type: boolean
+          description: |
+            Autoriza o compartilhamento do histórico com qualquer vet que tenha vínculo
+            clínico com o animal (RN-064). Com `false`, o vet só enxerga o que produziu
+            (RN-066) — e a data do consentimento é limpa, registrando a revogação (RN-062).
+          example: true
+
+    TutorConsentimentoResponse:
+      type: object
+      properties:
+        lgpdAceito:
+          type: boolean
+          example: true
+        dataLgpdAceito:
+          type: string
+          format: date
+          nullable: true
+          example: "2026-09-05"
+        consentimentoRede:
+          type: boolean
+          example: true
+        dataConsentimentoRede:
+          type: string
+          format: date
+          nullable: true
+          example: "2026-09-05"
+
+    # ─── Animal (RN-081, RN-068) ─────────────────────────────
+    AnimalRequest:
+      type: object
+      required: [nome, raca, sexo, peso, especieId, castrado]
+      properties:
+        nome:
+          type: string
+          maxLength: 80
+          example: Thor
+        raca:
+          type: string
+          maxLength: 80
+          example: Golden Retriever
+        sexo:
+          $ref: '#/components/schemas/Sexo'
+        dataNascimento:
+          type: string
+          format: date
+          description: Não pode ser futura.
+          example: "2021-03-14"
+        peso:
+          type: number
+          format: double
+          minimum: 0.01
+          description: |
+            Peso em kg, obrigatório e maior que zero (RN-081 — sem peso não se
+            registra posologia). Até 3 inteiros e 2 decimais.
+          example: 32.40
+        especieId:
+          type: string
+          format: uuid
+          description: ID de uma espécie existente (`GET /especies`).
+          example: b2c3d4e5-f6a7-8901-bcde-f12345678901
+        urlFoto:
+          type: string
+          maxLength: 500
+          nullable: true
+          example: https://cdn.vetly.com.br/animais/thor.jpg
+        castrado:
+          type: boolean
+          example: true
+        condicoesPreexistentes:
+          type: string
+          maxLength: 1000
+          nullable: true
+          example: Displasia coxofemoral leve diagnosticada em 2024.
+        alergias:
+          type: string
+          maxLength: 1000
+          nullable: true
+          description: Alimenta os alertas de segurança do histórico, que nunca podem ser ocultados (RN-068).
+          example: Alergia a dipirona.
+        medicacoesEmUso:
+          type: string
+          maxLength: 1000
+          nullable: true
+          example: Condroitina 500mg, 1x ao dia.
+
+    AnimalResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 9a1c7f52-4b6d-4f0e-8f31-2c6a5d7e1b04
+        nome:
+          type: string
+          example: Thor
+        raca:
+          type: string
+          example: Golden Retriever
+        sexo:
+          $ref: '#/components/schemas/Sexo'
+        dataNascimento:
+          type: string
+          format: date
+          example: "2021-03-14"
+        peso:
+          type: number
+          example: 32.40
+        especie:
+          type: string
+          description: Nome da espécie (enum `NomeEspecie`), não o ID.
+          example: CAO
+        urlFoto:
+          type: string
+          nullable: true
+          example: https://cdn.vetly.com.br/animais/thor.jpg
+        castrado:
+          type: boolean
+          example: true
+        condicoesPreexistentes:
+          type: string
+          nullable: true
+          example: Displasia coxofemoral leve diagnosticada em 2024.
+        alergias:
+          type: string
+          nullable: true
+          example: Alergia a dipirona.
+        medicacoesEmUso:
+          type: string
+          nullable: true
+          example: Condroitina 500mg, 1x ao dia.
+
+    PageAnimalResponse:
+      allOf:
+        - $ref: '#/components/schemas/Pagina'
+        - type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/AnimalResponse'
+
+    # ─── Consulta (RN-003, RN-008, RN-012, RN-038) ───────────
+    ConsultaRequest:
+      type: object
+      required: [animalId, veterinarioId, dataHora, valor]
+      properties:
+        animalId:
+          type: string
+          format: uuid
+          description: Animal do tutor autenticado — animal de outro tutor devolve `403`.
+          example: 9a1c7f52-4b6d-4f0e-8f31-2c6a5d7e1b04
+        veterinarioId:
+          type: string
+          format: uuid
+          description: Vet escolhido diretamente pelo tutor (RN-003) — obtido em `GET /veterinarios`.
+          example: 3f8b1e90-2d47-4c6a-9b15-7e0d4a2c8f61
+        dataHora:
+          type: string
+          format: date-time
+          description: Deve estar no futuro.
+          example: "2026-10-14T14:30:00"
+        valor:
+          type: number
+          format: double
+          minimum: 0.01
+          description: Valor combinado. O Java **não** processa pagamento — é só registro.
+          example: 180.00
+        observacao:
+          type: string
+          maxLength: 500
+          nullable: true
+          example: Thor está mancando da pata traseira esquerda há três dias.
+
+    ConsultaReagendarRequest:
+      type: object
+      required: [dataHora]
+      properties:
+        dataHora:
+          type: string
+          format: date-time
+          description: Nova data/hora, obrigatoriamente futura (RN-012).
+          example: "2026-10-21T09:00:00"
+
+    ConsultaResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: c47d2a18-5e93-4b7f-a2d6-8b1f0e5c9d33
+        dataHora:
+          type: string
+          format: date-time
+          example: "2026-10-14T14:30:00"
+        status:
+          $ref: '#/components/schemas/StatusConsulta'
+        valor:
+          type: number
+          example: 180.00
+        observacao:
+          type: string
+          nullable: true
+          example: Thor está mancando da pata traseira esquerda há três dias.
+        animalId:
+          type: string
+          format: uuid
+          example: 9a1c7f52-4b6d-4f0e-8f31-2c6a5d7e1b04
+        animalNome:
+          type: string
+          example: Thor
+        veterinarioId:
+          type: string
+          format: uuid
+          example: 3f8b1e90-2d47-4c6a-9b15-7e0d4a2c8f61
+        veterinarioNome:
+          type: string
+          example: Dra. Ana Oliveira
+
+    PageConsultaResponse:
+      allOf:
+        - $ref: '#/components/schemas/Pagina'
+        - type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/ConsultaResponse'
+
+    # ─── Colmeia (RN-064 a RN-068) ───────────────────────────
+    EvolucaoClinicaResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 6b2f9d40-8e17-4a35-9c82-0d3f7b1a5e26
+        anotacoes:
+          type: string
+          example: Claudicação grau II em MPE. Prescrito anti-inflamatório por 5 dias e repouso.
+        dataConsulta:
+          type: string
+          format: date-time
+          example: "2026-10-14T14:30:00"
+        veterinarioNome:
+          type: string
+          example: Dra. Ana Oliveira
+        alertaSeguranca:
+          type: boolean
+          description: |
+            Quando `true`, o registro **nunca** é ocultado do Responsável, mesmo que
+            esteja marcado como oculto (RN-068).
+          example: false
+
+    LogAcessoProntuarioResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 2e9c4b81-3d67-45a0-b8f2-1c7e5a9d0f34
+        dataHoraAcesso:
+          type: string
+          format: date-time
+          example: "2026-09-05T10:12:44"
+        contextoAcesso:
+          type: string
+          nullable: true
+          description: Texto livre enviado pelo vet no parâmetro `contexto`, ou o rótulo gravado pelo prontuário.
+          example: Consulta de retorno
+        baseAcesso:
+          $ref: '#/components/schemas/BaseAcesso'
+        veterinarioNome:
+          type: string
+          example: Dra. Ana Oliveira
+
+    PageLogAcessoProntuarioResponse:
+      allOf:
+        - $ref: '#/components/schemas/Pagina'
+        - type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/LogAcessoProntuarioResponse'
+
+    # ─── Prontuário (RN-063, RN-088, RN-089) ─────────────────
+    ProntuarioRequest:
+      type: object
+      required: [conteudoClinico]
+      properties:
+        conteudoClinico:
+          type: string
+          example: |
+            Anamnese: claudicação em MPE há 3 dias, sem trauma relatado.
+            Exame físico: dor à extensão do quadril esquerdo; FC 92 bpm; T 38,6 °C.
+            Conduta: radiografia de quadril e anti-inflamatório por 5 dias.
+
+    ProntuarioCorrecaoRequest:
+      type: object
+      required: [conteudoClinico]
+      properties:
+        conteudoClinico:
+          type: string
+          description: Conteúdo corrigido. Não sobrescreve o original — cria uma nova versão vinculada a ele (RN-088).
+          example: |
+            Anamnese: claudicação em MPE há 3 dias, sem trauma relatado.
+            Exame físico: dor à extensão do quadril esquerdo; FC 92 bpm; T 38,6 °C.
+            Conduta: radiografia de quadril e anti-inflamatório por 7 dias (corrigido).
+        justificativa:
+          type: string
+          maxLength: 1000
+          nullable: true
+          description: |
+            Obrigatória apenas quando a correção ocorre **fora da janela de 24h** da
+            criação do prontuário original (RN-089); dentro da janela é ignorada.
+          example: Ajuste de posologia após revisão do laudo radiográfico.
+
+    ProntuarioResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 8c5f1d29-7a34-4e6b-91c0-2d8b4f7a3e15
+        conteudoClinico:
+          type: string
+          example: "Anamnese: claudicação em MPE há 3 dias..."
+        dataUltimaAtualizacao:
+          type: string
+          format: date
+          example: "2026-09-05"
+        original:
+          type: boolean
+          description: "`true` na versão original; `false` em cada correção."
+          example: true
+        dataHoraCorrecao:
+          type: string
+          format: date-time
+          nullable: true
+          description: Preenchida apenas em correções.
+          example: null
+        crmvSolicitanteCorrecao:
+          type: string
+          nullable: true
+          description: CRMV do vet que assinou a correção (RN-088).
+          example: null
+        justificativaCorrecao:
+          type: string
+          nullable: true
+          description: Preenchida apenas em correções fora da janela de 24h (RN-089).
+          example: null
+
+    # ─── Exames (RN-103, RN-104) ─────────────────────────────
+    SolicitacaoExameRequest:
+      type: object
+      required: [itens]
+      properties:
+        observacao:
+          type: string
+          maxLength: 300
+          nullable: true
+          example: Jejum de 8 horas antes da coleta.
+        itens:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [nomeExame]
+            properties:
+              nomeExame:
+                type: string
+                maxLength: 100
+                example: Hemograma completo
+
+    ResultadoExameRequest:
+      type: object
+      required: [descricaoResultado]
+      properties:
+        descricaoResultado:
+          type: string
+          maxLength: 500
+          example: Leucograma dentro da normalidade; leve anemia normocítica normocrômica.
+
+    AnexoExameRequest:
+      type: object
+      required: [urlArquivo, mimeType]
+      properties:
+        urlArquivo:
+          type: string
+          maxLength: 500
+          description: URL do arquivo já hospedado. A API **não** recebe o binário (RN-104, upload feito fora).
+          example: https://cdn.vetly.com.br/exames/thor-hemograma-2026-10-14.pdf
+        mimeType:
+          type: string
+          maxLength: 30
+          example: application/pdf
+
+    AnexoExameResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 1a4e8c37-6b90-42d5-8e71-3f2c9d0a5b68
+        urlArquivo:
+          type: string
+          example: https://cdn.vetly.com.br/exames/thor-hemograma-2026-10-14.pdf
+        mimeType:
+          type: string
+          example: application/pdf
+        dataUpload:
+          type: string
+          format: date
+          example: "2026-10-15"
+
+    SolicitacaoExameItemResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 5d90f3a1-8c24-4e7b-9a03-6f1d8b2e4c57
+        nomeExame:
+          type: string
+          example: Hemograma completo
+        status:
+          $ref: '#/components/schemas/StatusExame'
+        dataSolicitacao:
+          type: string
+          format: date
+          example: "2026-10-14"
+        dataResultado:
+          type: string
+          format: date
+          nullable: true
+          description: "`null` para o tutor enquanto `liberadoResponsavel` for `false` (RN-104)."
+          example: "2026-10-15"
+        descricaoResultado:
+          type: string
+          nullable: true
+          description: "`null` para o tutor enquanto `liberadoResponsavel` for `false` (RN-104)."
+          example: Leucograma dentro da normalidade; leve anemia normocítica normocrômica.
+        liberadoResponsavel:
+          type: boolean
+          example: false
+        dataLiberacaoResponsavel:
+          type: string
+          format: date
+          nullable: true
+          example: null
+        anexos:
+          type: array
+          description: Lista vazia para o tutor enquanto o item não estiver liberado (RN-104).
+          items:
+            $ref: '#/components/schemas/AnexoExameResponse'
+
+    SolicitacaoExameResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: e21b6c74-9f3a-4d18-b5e7-0c4a2f8d6b19
+        observacao:
+          type: string
+          nullable: true
+          example: Jejum de 8 horas antes da coleta.
+        consultaId:
+          type: string
+          format: uuid
+          example: c47d2a18-5e93-4b7f-a2d6-8b1f0e5c9d33
+        animalNome:
+          type: string
+          example: Thor
+        veterinarioNome:
+          type: string
+          example: Dra. Ana Oliveira
+        itens:
+          type: array
+          items:
+            $ref: '#/components/schemas/SolicitacaoExameItemResponse'
 
 paths:
 
   # ══════════════════════════════════════════
-  # AUTH
+  # AUTENTICAÇÃO
   # ══════════════════════════════════════════
   /auth/login:
     post:
       tags: [Autenticação]
-      summary: Autenticar usuário
-      description: Autentica e-mail e senha; retorna JWT de acesso.
+      summary: Autenticar e obter o JWT
+      description: |
+        Valida e-mail e senha e devolve o token usado em todas as rotas protegidas.
+
+        **Mock — use um dos três atores do roteiro de teste** (veja os exemplos ao lado):
+        tutor, veterinário ou administrador.
       security: []
       requestBody:
         required: true
@@ -356,38 +1056,100 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/AuthDTO'
-            example:
-              email: admin@vetly.com.br
-              senha: "Admin@123"
+            examples:
+              tutor:
+                summary: Tutor (Maria)
+                value:
+                  email: maria.souza@vetly.com.br
+                  senha: "Tutor@123"
+              veterinario:
+                summary: Veterinária (Dra. Ana)
+                value:
+                  email: dra.ana@vetly.com.br
+                  senha: "Senha@456"
+              admin:
+                summary: Administrador
+                value:
+                  email: admin@vetly.com.br
+                  senha: "Admin@123"
       responses:
         '200':
-          description: Autenticação bem-sucedida
+          description: Autenticado
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/LoginResponseDTO'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
         '401':
-          description: Credenciais inválidas
+          description: Credenciais inválidas — corpo em texto puro
           content:
-            application/json:
+            text/plain:
               schema:
                 type: string
               examples:
                 usuario_nao_encontrado:
-                  value: "Usuário não encontrado"
+                  value: Usuário não encontrado
                 senha_incorreta:
-                  value: "Senha incorreta"
-        '422':
-          description: Dados de entrada inválidos (falha de validação)
+                  value: Senha incorreta
+
+  /auth/register/tutor:
+    post:
+      tags: [Autenticação]
+      summary: Auto-registro de tutor
+      description: |
+        Cria, em uma transação, `TB_USUARIO` (role `TUTOR`), `TB_PESSOA` e `TB_TUTOR`.
+        O tutor é ator de primeira classe nesta API — agenda sozinho, sem intermediação
+        de clínica.
+
+        O consentimento nasce **não aceito**: use `PUT /tutores/me/consentimento`
+        logo após o primeiro login (RN-060).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterTutorDTO'
+            example:
+              email: maria.souza@vetly.com.br
+              senha: "Tutor@123"
+              nome: Maria Souza
+              cpf: "52998224725"
+              telefone: "(11) 98765-4321"
+      responses:
+        '201':
+          description: Tutor registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioResponse'
+              example:
+                id: 7d1e4c85-2a90-4b63-8f17-5c9a0d3e6b28
+                email: maria.souza@vetly.com.br
+                role: TUTOR
+                flagAtivo: "S"
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '409':
+          description: E-mail, CPF/telefone já cadastrados
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: Email já cadastrado
 
   /auth/register/veterinario:
     post:
       tags: [Autenticação]
-      summary: Registrar novo veterinário
+      summary: Auto-registro de veterinário
       description: |
-        Cria uma conta de veterinário com perfil completo.
-        Internamente cria registros nas tabelas `TB_USUARIO`, `TB_PESSOA`, `TB_VETERINARIO`,
-        `TB_VETERINARIO_ESPECIALIDADE` e `TB_VETERINARIO_ESPECIE` de forma transacional.
+        Cria `TB_USUARIO` (role `VETERINARIO`), `TB_PESSOA`, `TB_VETERINARIO`,
+        `TB_VETERINARIO_ESPECIALIDADE` e `TB_VETERINARIO_ESPECIE` transacionalmente.
+
+        As especialidades e espécies informadas precisam já existir
+        (`POST /especialidades` e `POST /especies`, feitos pelo ADMIN).
       security: []
       requestBody:
         required: true
@@ -398,29 +1160,40 @@ paths:
             example:
               email: dra.ana@vetly.com.br
               senha: "Senha@456"
-              crmv: "SP-98765"
-              nome: "Dra. Ana Oliveira"
+              crmv: SP-98765
+              nome: Dra. Ana Oliveira
               cpf: "98765432100"
               telefone: "(11) 97654-3210"
-              especialidades: ["CARDIOLOGIA", "PEQUENOS_ANIMAIS"]
-              especies: ["CAO", "GATO", "AVE"]
+              especialidades: [CARDIOLOGIA, PEQUENOS_ANIMAIS]
+              especies: [CAO, GATO]
       responses:
         '201':
-          description: Veterinário registrado com sucesso
+          description: Veterinário registrado
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UsuarioResponse'
+              example:
+                id: 3f8b1e90-2d47-4c6a-9b15-7e0d4a2c8f61
+                email: dra.ana@vetly.com.br
+                role: VETERINARIO
+                flagAtivo: "S"
         '400':
-          description: E-mail já cadastrado
-        '422':
-          description: Dados de entrada inválidos
+          $ref: '#/components/responses/ErroValidacao'
+        '409':
+          description: E-mail, CPF/telefone ou CRMV já cadastrados
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: CRMV já cadastrado
 
   /auth/register/admin:
     post:
       tags: [Autenticação]
-      summary: Registrar novo administrador
-      description: Cria uma conta com papel `ADMIN`. Retorna `400` se o e-mail já existir.
+      summary: Registrar administrador
+      description: Cria uma conta com papel `ADMIN`. Endpoint público — proteja-o antes de ir a produção.
       security: []
       requestBody:
         required: true
@@ -428,26 +1201,43 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/RegisterAdminDTO'
+            example:
+              email: admin@vetly.com.br
+              senha: "Admin@123"
       responses:
-        '200':
-          description: Admin criado com sucesso
+        '201':
+          description: Administrador criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioResponse'
+              example:
+                id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+                email: admin@vetly.com.br
+                role: ADMIN
+                flagAtivo: "S"
         '400':
-          description: E-mail já cadastrado
+          description: E-mail já cadastrado (corpo vazio) ou falha de validação
 
   # ══════════════════════════════════════════
-  # USUÁRIOS
+  # USUÁRIOS (ADMIN)
   # ══════════════════════════════════════════
   /usuarios:
     post:
       tags: [Usuários]
       summary: Criar usuário
-      description: Cria um novo usuário (qualquer papel). Requer role `ADMIN`.
+      description: Cria uma conta de qualquer papel, sem o perfil associado (Pessoa/Tutor/Veterinário). Requer `ADMIN`.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/UsuarioDTO'
+            example:
+              email: novo@vetly.com.br
+              role: ADMIN
+              flagAtivo: "S"
+              senha: "Admin@456"
       responses:
         '201':
           description: Usuário criado
@@ -455,50 +1245,55 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UsuarioResponse'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
         '401':
-          description: Não autenticado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErroGenerico'
+          $ref: '#/components/responses/NaoAutenticado'
         '403':
-          description: Acesso negado (não é ADMIN)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErroGenerico'
+          $ref: '#/components/responses/AcessoNegado'
 
     get:
       tags: [Usuários]
       summary: Listar usuários (paginado)
-      description: Retorna página de usuários ordenada por e-mail. Requer role `ADMIN`.
+      description: Página de 5 registros ordenada por e-mail, com link HATEOAS por item. Requer `ADMIN`.
       parameters:
-        - name: pageNumber
-          in: query
-          schema:
-            type: integer
-            default: 0
-            minimum: 0
-          description: Número da página (base 0). Tamanho fixo de 5 registros por página.
+        - $ref: '#/components/parameters/PageNumber'
       responses:
         '200':
-          description: Lista paginada de usuários
+          description: Página de usuários
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PageUsuarioLista'
-        '404':
-          description: Nenhum usuário encontrado
+              example:
+                content:
+                  - email: admin@vetly.com.br
+                    link:
+                      href: http://localhost:8080/usuarios/a1b2c3d4-e5f6-7890-abcd-ef1234567890
+                  - email: dra.ana@vetly.com.br
+                    link:
+                      href: http://localhost:8080/usuarios/3f8b1e90-2d47-4c6a-9b15-7e0d4a2c8f61
+                  - email: maria.souza@vetly.com.br
+                    link:
+                      href: http://localhost:8080/usuarios/7d1e4c85-2a90-4b63-8f17-5c9a0d3e6b28
+                totalElements: 3
+                totalPages: 1
+                number: 0
+                size: 5
+                first: true
+                last: true
         '401':
-          description: Não autenticado
+          $ref: '#/components/responses/NaoAutenticado'
         '403':
-          description: Acesso negado
+          $ref: '#/components/responses/AcessoNegado'
+        '404':
+          description: Nenhum usuário na página solicitada (corpo vazio)
 
   /usuarios/{id}:
     get:
       tags: [Usuários]
       summary: Buscar usuário por ID
-      description: Retorna os dados de um usuário específico. Requer role `ADMIN`.
+      description: Requer `ADMIN`.
       parameters:
         - name: id
           in: path
@@ -506,7 +1301,7 @@ paths:
           schema:
             type: string
             format: uuid
-          description: ID do usuário
+          example: 7d1e4c85-2a90-4b63-8f17-5c9a0d3e6b28
       responses:
         '200':
           description: Usuário encontrado
@@ -515,18 +1310,42 @@ paths:
               schema:
                 $ref: '#/components/schemas/UsuarioResponse'
         '401':
-          description: Não autenticado
+          $ref: '#/components/responses/NaoAutenticado'
         '403':
-          description: Acesso negado
+          $ref: '#/components/responses/AcessoNegado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
 
   # ══════════════════════════════════════════
   # ESPÉCIES
   # ══════════════════════════════════════════
   /especies:
+    get:
+      tags: [Espécies]
+      summary: Listar espécies
+      description: |
+        Lista completa, **sem paginação** (o conjunto de espécies é fixo por design).
+        Endpoint público — é daqui que sai o `especieId` usado em `POST /animais`.
+      security: []
+      responses:
+        '200':
+          description: Espécies cadastradas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Especie'
+              example:
+                - id: b2c3d4e5-f6a7-8901-bcde-f12345678901
+                  nome: CAO
+                - id: d4e5f6a7-b8c9-0123-def1-234567890123
+                  nome: GATO
+
     post:
       tags: [Espécies]
       summary: Criar espécie
-      description: Cadastra uma nova espécie. Requer role `ADMIN`.
+      description: Requer `ADMIN`.
       requestBody:
         required: true
         content:
@@ -534,7 +1353,7 @@ paths:
             schema:
               $ref: '#/components/schemas/EspecieRequest'
             example:
-              nome: "CAO"
+              nome: CAO
       responses:
         '201':
           description: Espécie criada
@@ -542,27 +1361,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Especie'
+              example:
+                id: b2c3d4e5-f6a7-8901-bcde-f12345678901
+                nome: CAO
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
         '401':
-          description: Não autenticado
+          $ref: '#/components/responses/NaoAutenticado'
         '403':
-          description: Acesso negado
+          $ref: '#/components/responses/AcessoNegado'
+        '409':
+          description: Espécie já cadastrada
 
-    get:
+    put:
       tags: [Espécies]
-      summary: Listar todas as espécies
-      description: |
-        Retorna a lista completa de espécies cadastradas. **Endpoint público** — não exige autenticação.
-        Paginação não é aplicada (número de espécies é fixo por design).
-      security: []
+      summary: Atualizar espécie
+      description: O `id` vai **no corpo**, não na URL. Requer `ADMIN`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Especie'
+            example:
+              id: b2c3d4e5-f6a7-8901-bcde-f12345678901
+              nome: CAO
       responses:
-        '200':
-          description: Lista de espécies
+        '201':
+          description: Espécie atualizada
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Especie'
+                $ref: '#/components/schemas/Especie'
+        '400':
+          description: Nenhuma espécie com o `id` informado
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
 
   /especies/{id}:
     get:
@@ -576,7 +1412,7 @@ paths:
           schema:
             type: string
             format: uuid
-          description: ID da espécie
+          example: b2c3d4e5-f6a7-8901-bcde-f12345678901
       responses:
         '200':
           description: Espécie encontrada
@@ -590,7 +1426,7 @@ paths:
     delete:
       tags: [Espécies]
       summary: Excluir espécie
-      description: Requer role `ADMIN`.
+      description: Requer `ADMIN`.
       parameters:
         - name: id
           in: path
@@ -598,49 +1434,60 @@ paths:
           schema:
             type: string
             format: uuid
+          example: b2c3d4e5-f6a7-8901-bcde-f12345678901
       responses:
         '200':
-          description: Espécie removida com sucesso
+          description: Espécie removida
         '401':
-          description: Não autenticado
+          $ref: '#/components/responses/NaoAutenticado'
         '403':
-          description: Acesso negado
-
-  /especies/atualizar:
-    put:
-      tags: [Espécies]
-      summary: Atualizar espécie
-      description: |
-        Atualiza os dados de uma espécie existente. O ID deve ser informado no corpo da requisição.
-        Requer role `ADMIN`.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Especie'
-      responses:
-        '201':
-          description: Espécie atualizada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Especie'
-        '400':
-          description: Espécie não encontrada para o ID informado
-        '401':
-          description: Não autenticado
-        '403':
-          description: Acesso negado
+          $ref: '#/components/responses/AcessoNegado'
+        '409':
+          description: Espécie referenciada por algum animal
 
   # ══════════════════════════════════════════
   # ESPECIALIDADES
   # ══════════════════════════════════════════
   /especialidades:
+    get:
+      tags: [Especialidades]
+      summary: Listar especialidades (paginado)
+      description: |
+        Página de **2 registros** ordenada por nome, com link HATEOAS por item.
+        Endpoint público.
+
+        > Não há filtro por `nome`/`descricao` nesta rota — o único parâmetro
+        > aceito é `pageNumber`. Para buscar profissionais por especialidade use
+        > `GET /veterinarios?especialidade=`.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PageNumber'
+      responses:
+        '200':
+          description: Página de especialidades
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageEspecialidadeVetLista'
+              example:
+                content:
+                  - nome: CARDIOLOGIA
+                    link:
+                      href: http://localhost:8080/especialidades/c3d4e5f6-a7b8-9012-cdef-123456789012
+                  - nome: PEQUENOS_ANIMAIS
+                    link:
+                      href: http://localhost:8080/especialidades/e5f6a7b8-c9d0-1234-ef12-345678901234
+                totalElements: 2
+                totalPages: 1
+                number: 0
+                size: 2
+                first: true
+                last: true
+
     post:
       tags: [Especialidades]
       summary: Criar especialidade
-      description: Cadastra uma nova especialidade veterinária. Requer role `ADMIN`.
+      description: Requer `ADMIN`.
       requestBody:
         required: true
         content:
@@ -648,8 +1495,8 @@ paths:
             schema:
               $ref: '#/components/schemas/EspecialidadeVetRequest'
             example:
-              nome: "CARDIOLOGIA"
-              descricao: "Diagnóstico e tratamento de doenças do coração em animais."
+              nome: CARDIOLOGIA
+              descricao: Diagnóstico e tratamento de doenças do coração em animais.
       responses:
         '201':
           description: Especialidade criada
@@ -657,60 +1504,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EspecialidadeVet'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
         '401':
-          description: Não autenticado
+          $ref: '#/components/responses/NaoAutenticado'
         '403':
-          description: Acesso negado
+          $ref: '#/components/responses/AcessoNegado'
+        '409':
+          description: Especialidade já cadastrada
 
-    get:
+    put:
       tags: [Especialidades]
-      summary: Listar especialidades (paginado, com filtros opcionais)
-      description: |
-        Retorna página de especialidades ordenada por nome. **Endpoint público**.
-        Tamanho de página fixo em 2 registros.
-
-        Os parâmetros `nome` e `descricao` são opcionais e combináveis entre si.
-        A busca é **case-insensitive** e por **trecho** (contém), usando JPQL com `LIKE`.
-
-        | Exemplo | Resultado |
-        |---------|-----------|
-        | `GET /especialidades` | Todos, paginado |
-        | `GET /especialidades?nome=cardio` | Contém "cardio" no nome |
-        | `GET /especialidades?descricao=coracao` | Contém "coracao" na descrição |
-        | `GET /especialidades?nome=cardio&descricao=animal` | Ambos os filtros aplicados |
-        | `GET /especialidades?nome=cardio&pageNumber=1` | Filtro + segunda página |
-      security: []
-      parameters:
-        - name: pageNumber
-          in: query
-          schema:
-            type: integer
-            default: 0
-            minimum: 0
-          description: Número da página (base 0)
-        - name: nome
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Trecho do nome da especialidade (case-insensitive). Ex.:  `cardio`, `CIRUR`
-          example: cardio
-        - name: descricao
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Trecho da descrição da especialidade (case-insensitive). Ex.: `coração`, `animais`
-          example: coração
+      summary: Atualizar especialidade
+      description: O `id` vai **no corpo**, não na URL. Requer `ADMIN`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EspecialidadeVet'
+            example:
+              id: c3d4e5f6-a7b8-9012-cdef-123456789012
+              nome: CARDIOLOGIA
+              descricao: Diagnóstico, tratamento e acompanhamento de cardiopatias em cães e gatos.
       responses:
-        '200':
-          description: Página de especialidades com links HATEOAS
+        '201':
+          description: Especialidade atualizada
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PageEspecialidadeVetLista'
-        '404':
-          description: Nenhuma especialidade encontrada para os filtros informados
+                $ref: '#/components/schemas/EspecialidadeVet'
+        '400':
+          description: Nenhuma especialidade com o `id` informado
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
 
   /especialidades/{id}:
     get:
@@ -724,6 +1553,7 @@ paths:
           schema:
             type: string
             format: uuid
+          example: c3d4e5f6-a7b8-9012-cdef-123456789012
       responses:
         '200':
           description: Especialidade encontrada
@@ -732,12 +1562,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/EspecialidadeVet'
         '204':
-          description: Especialidade não encontrada
+          description: Especialidade não encontrada (sem corpo)
 
     delete:
       tags: [Especialidades]
       summary: Excluir especialidade
-      description: Requer role `ADMIN`.
+      description: Requer `ADMIN`.
       parameters:
         - name: id
           in: path
@@ -745,37 +1575,1435 @@ paths:
           schema:
             type: string
             format: uuid
+          example: c3d4e5f6-a7b8-9012-cdef-123456789012
       responses:
         '200':
-          description: Especialidade removida com sucesso
+          description: Especialidade removida
         '401':
-          description: Não autenticado
+          $ref: '#/components/responses/NaoAutenticado'
         '403':
-          description: Acesso negado
+          $ref: '#/components/responses/AcessoNegado'
+        '409':
+          description: Especialidade vinculada a algum veterinário
 
-  /especialidades/atualizar:
-    put:
-      tags: [Especialidades]
-      summary: Atualizar especialidade
+  # ══════════════════════════════════════════
+  # VETERINÁRIOS
+  # ══════════════════════════════════════════
+  /veterinarios:
+    get:
+      tags: [Veterinários]
+      summary: Listar veterinários, opcionalmente por especialidade
       description: |
-        Atualiza os dados de uma especialidade existente. O ID deve ser informado no corpo.
-        Requer role `ADMIN`.
+        Página de 5 registros ordenada pelo nome da pessoa. Endpoint **público** —
+        é daqui que o tutor tira o `veterinarioId` para `POST /consultas`.
+
+        Sem `especialidade`, lista todos; com `especialidade`, filtra pelo nome do
+        enum `NomeEspecialidade` (valor exato).
+
+        > Não há matching por geolocalização aqui — RN-026 a RN-033 são escopo do backend `.NET`.
+      security: []
+      parameters:
+        - name: especialidade
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/NomeEspecialidade'
+          description: Nome exato da especialidade.
+          example: CARDIOLOGIA
+        - $ref: '#/components/parameters/PageNumber'
+      responses:
+        '200':
+          description: Página de veterinários
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageVeterinarioLista'
+              example:
+                content:
+                  - nome: Dra. Ana Oliveira
+                    crmv: SP-98765
+                    especialidadeVet:
+                      - id: c3d4e5f6-a7b8-9012-cdef-123456789012
+                        nome: CARDIOLOGIA
+                        descricao: Diagnóstico e tratamento de doenças do coração em animais.
+                    link:
+                      href: http://localhost:8080/veterinarios/3f8b1e90-2d47-4c6a-9b15-7e0d4a2c8f61
+                totalElements: 1
+                totalPages: 1
+                number: 0
+                size: 5
+                first: true
+                last: true
+        '404':
+          description: Nenhum veterinário encontrado (corpo vazio)
+
+  /veterinarios/{id}:
+    get:
+      tags: [Veterinários]
+      summary: Buscar veterinário por ID
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 3f8b1e90-2d47-4c6a-9b15-7e0d4a2c8f61
+      responses:
+        '200':
+          description: Veterinário encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VeterinarioResponse'
+              example:
+                nome: Dra. Ana Oliveira
+                crmv: SP-98765
+                especialidades: [CARDIOLOGIA, PEQUENOS_ANIMAIS]
+        '404':
+          description: Veterinário não encontrado (corpo vazio)
+
+  # ══════════════════════════════════════════
+  # TUTORES — CONSENTIMENTO (RN-060 a RN-062)
+  # ══════════════════════════════════════════
+  /tutores/me/consentimento:
+    get:
+      tags: [Tutores]
+      summary: Ler o consentimento do tutor autenticado
+      description: |
+        Estado atual do aceite LGPD e do consentimento de compartilhamento em rede,
+        com as respectivas datas de registro. Somente `TUTOR`.
+      responses:
+        '200':
+          description: Consentimento atual
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TutorConsentimentoResponse'
+              example:
+                lgpdAceito: true
+                dataLgpdAceito: "2026-09-05"
+                consentimentoRede: true
+                dataConsentimentoRede: "2026-09-05"
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          description: Usuário autenticado não é TUTOR
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: Somente tutores possuem consentimento LGPD/rede
+
+    put:
+      tags: [Tutores]
+      summary: Registrar ou revogar consentimento
+      description: |
+        **RN-060** — o aceite LGPD é registrado com data no momento em que passa a `true`.
+
+        **RN-064/066** — `consentimentoRede: true` abre o histórico completo do animal
+        a qualquer vet com vínculo clínico; `false` restringe o vet ao que ele mesmo
+        produziu.
+
+        **RN-062** — revogar (`false`) limpa a data do consentimento de rede e passa a
+        valer nos acessos seguintes, **sem apagar** os registros clínicos já produzidos.
+
+        Ambos os campos são obrigatórios: o `PUT` grava o estado inteiro, não um patch.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/EspecialidadeVet'
+              $ref: '#/components/schemas/TutorConsentimentoRequest'
+            examples:
+              aceitar_tudo:
+                summary: Aceitar LGPD e liberar a rede (passo 5 do roteiro)
+                value:
+                  lgpdAceito: true
+                  consentimentoRede: true
+              revogar_rede:
+                summary: Manter LGPD, revogar o compartilhamento em rede (RN-062)
+                value:
+                  lgpdAceito: true
+                  consentimentoRede: false
       responses:
-        '201':
-          description: Especialidade atualizada
+        '200':
+          description: Consentimento atualizado
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EspecialidadeVet'
+                $ref: '#/components/schemas/TutorConsentimentoResponse'
+              example:
+                lgpdAceito: true
+                dataLgpdAceito: "2026-09-05"
+                consentimentoRede: false
+                dataConsentimentoRede: null
         '400':
-          description: Especialidade não encontrada para o ID informado
+          $ref: '#/components/responses/ErroValidacao'
         '401':
-          description: Não autenticado
+          $ref: '#/components/responses/NaoAutenticado'
         '403':
-          description: Acesso negado
+          $ref: '#/components/responses/AcessoNegado'
+
+  # ══════════════════════════════════════════
+  # ANIMAIS (RN-081)
+  # ══════════════════════════════════════════
+  /animais:
+    post:
+      tags: [Animais]
+      summary: Cadastrar animal
+      description: |
+        Somente `TUTOR`; o animal nasce vinculado ao tutor autenticado — não há como
+        cadastrar animal para outra pessoa.
+
+        **RN-081** — `peso` é obrigatório e maior que zero.
+        **RN-068** — `alergias` alimenta os alertas de segurança do histórico clínico,
+        que nunca podem ser ocultados do Responsável.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnimalRequest'
+            examples:
+              completo:
+                summary: Thor — cadastro clínico completo (passo 4 do roteiro)
+                value:
+                  nome: Thor
+                  raca: Golden Retriever
+                  sexo: M
+                  dataNascimento: "2021-03-14"
+                  peso: 32.40
+                  especieId: b2c3d4e5-f6a7-8901-bcde-f12345678901
+                  urlFoto: https://cdn.vetly.com.br/animais/thor.jpg
+                  castrado: true
+                  condicoesPreexistentes: Displasia coxofemoral leve diagnosticada em 2024.
+                  alergias: Alergia a dipirona.
+                  medicacoesEmUso: Condroitina 500mg, 1x ao dia.
+              minimo:
+                summary: Apenas os campos obrigatórios
+                value:
+                  nome: Mel
+                  raca: SRD
+                  sexo: F
+                  peso: 4.10
+                  especieId: d4e5f6a7-b8c9-0123-def1-234567890123
+                  castrado: false
+      responses:
+        '201':
+          description: Animal cadastrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnimalResponse'
+              example:
+                id: 9a1c7f52-4b6d-4f0e-8f31-2c6a5d7e1b04
+                nome: Thor
+                raca: Golden Retriever
+                sexo: M
+                dataNascimento: "2021-03-14"
+                peso: 32.40
+                especie: CAO
+                urlFoto: https://cdn.vetly.com.br/animais/thor.jpg
+                castrado: true
+                condicoesPreexistentes: Displasia coxofemoral leve diagnosticada em 2024.
+                alergias: Alergia a dipirona.
+                medicacoesEmUso: Condroitina 500mg, 1x ao dia.
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          description: Usuário autenticado não é TUTOR
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: Somente tutores podem gerenciar animais
+        '404':
+          description: Espécie inexistente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: "Espécie não encontrada: b2c3d4e5-f6a7-8901-bcde-f12345678901"
+
+    get:
+      tags: [Animais]
+      summary: Listar os animais do tutor autenticado
+      description: Página de 10 registros ordenada por nome. Só retorna animais do próprio tutor.
+      parameters:
+        - $ref: '#/components/parameters/PageNumber'
+      responses:
+        '200':
+          description: Página de animais
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageAnimalResponse'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+
+  /animais/{id}:
+    get:
+      tags: [Animais]
+      summary: Buscar animal por ID
+      description: Retorna `403` se o animal for de outro tutor.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 9a1c7f52-4b6d-4f0e-8f31-2c6a5d7e1b04
+      responses:
+        '200':
+          description: Animal encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnimalResponse'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+
+    put:
+      tags: [Animais]
+      summary: Atualizar animal
+      description: |
+        Substituição completa — envie todos os campos obrigatórios, inclusive `peso` (RN-081).
+        Somente o tutor dono.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 9a1c7f52-4b6d-4f0e-8f31-2c6a5d7e1b04
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnimalRequest'
+            example:
+              nome: Thor
+              raca: Golden Retriever
+              sexo: M
+              dataNascimento: "2021-03-14"
+              peso: 33.10
+              especieId: b2c3d4e5-f6a7-8901-bcde-f12345678901
+              urlFoto: https://cdn.vetly.com.br/animais/thor.jpg
+              castrado: true
+              condicoesPreexistentes: Displasia coxofemoral leve diagnosticada em 2024.
+              alergias: Alergia a dipirona e a carprofeno.
+              medicacoesEmUso: Condroitina 500mg, 1x ao dia.
+      responses:
+        '200':
+          description: Animal atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnimalResponse'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+
+    delete:
+      tags: [Animais]
+      summary: Excluir animal
+      description: Somente o tutor dono.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 9a1c7f52-4b6d-4f0e-8f31-2c6a5d7e1b04
+      responses:
+        '204':
+          description: Animal removido
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          description: Animal com consultas/prontuário vinculados
+
+  # ══════════════════════════════════════════
+  # COLMEIA (RN-064 a RN-068)
+  # ══════════════════════════════════════════
+  /animais/{animalId}/historico:
+    get:
+      tags: [Colmeia]
+      summary: Ler o histórico clínico do animal
+      description: |
+        A mesma rota serve os dois papéis, com regras diferentes.
+
+        **Tutor dono** — vê o histórico do próprio animal. Registros marcados como
+        ocultos não aparecem, **exceto** os marcados como alerta de segurança, que
+        nunca são ocultáveis (**RN-068**). Não gera log.
+
+        **Veterinário** — **RN-064**: o acesso é concedido automaticamente a quem tem
+        ao menos uma consulta **não cancelada** com o animal; sem vínculo clínico,
+        `403`. O escopo depende do consentimento do tutor:
+
+        | `consentimentoRede` do tutor | O que o vet vê | `baseAcesso` gravada |
+        |---|---|---|
+        | `true` | histórico completo do animal | `CONSENTIMENTO_REDE` |
+        | `false` | apenas as evoluções que ele mesmo produziu (**RN-066**) | `ATENDIMENTO_DIRETO` |
+
+        **RN-067** — todo acesso de veterinário grava uma linha em
+        `TB_LOG_ACESSO_PRONTUARIO`, consultável pelo tutor em `/logs-acesso`.
+      parameters:
+        - name: animalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 9a1c7f52-4b6d-4f0e-8f31-2c6a5d7e1b04
+        - name: contexto
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            Texto livre gravado no log de acesso (ignorado quando quem lê é o tutor).
+            Use-o para dizer *por que* o histórico foi aberto.
+          example: Consulta de retorno
+      responses:
+        '200':
+          description: Histórico visível para o solicitante
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EvolucaoClinicaResponse'
+              examples:
+                com_consentimento_rede:
+                  summary: Vet com vínculo clínico e consentimento de rede ativo
+                  value:
+                    - id: 6b2f9d40-8e17-4a35-9c82-0d3f7b1a5e26
+                      anotacoes: Claudicação grau II em MPE. Anti-inflamatório por 5 dias e repouso.
+                      dataConsulta: "2026-10-14T14:30:00"
+                      veterinarioNome: Dra. Ana Oliveira
+                      alertaSeguranca: false
+                    - id: 0f5a3c78-1d92-4b60-8e47-9c2a6d5f3b18
+                      anotacoes: Reação adversa a dipirona registrada — não reutilizar.
+                      dataConsulta: "2025-06-02T11:00:00"
+                      veterinarioNome: Dr. Carlos Menezes
+                      alertaSeguranca: true
+                sem_consentimento_rede:
+                  summary: Sem consentimento — só o que o próprio vet produziu (RN-066)
+                  value:
+                    - id: 6b2f9d40-8e17-4a35-9c82-0d3f7b1a5e26
+                      anotacoes: Claudicação grau II em MPE. Anti-inflamatório por 5 dias e repouso.
+                      dataConsulta: "2026-10-14T14:30:00"
+                      veterinarioNome: Dra. Ana Oliveira
+                      alertaSeguranca: false
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          description: Sem vínculo clínico, animal de outro tutor, ou papel ADMIN
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              examples:
+                sem_vinculo:
+                  value:
+                    error: "Colmeia: veterinário não possui nenhuma consulta com este animal — acesso não concedido"
+                outro_tutor:
+                  value:
+                    error: Animal não pertence ao tutor autenticado
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+
+  /animais/{animalId}/logs-acesso:
+    get:
+      tags: [Colmeia]
+      summary: Listar os acessos ao histórico do animal
+      description: |
+        **RN-067** — trilha de auditoria visível ao Responsável: quem acessou, quando,
+        em que contexto e sob qual base legal. Somente o `TUTOR` dono do animal.
+        Página de 20 registros, do acesso mais recente para o mais antigo.
+      parameters:
+        - name: animalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 9a1c7f52-4b6d-4f0e-8f31-2c6a5d7e1b04
+        - $ref: '#/components/parameters/PageNumber'
+      responses:
+        '200':
+          description: Página de acessos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageLogAcessoProntuarioResponse'
+              example:
+                content:
+                  - id: 2e9c4b81-3d67-45a0-b8f2-1c7e5a9d0f34
+                    dataHoraAcesso: "2026-10-15T09:41:02"
+                    contextoAcesso: Correção do prontuário
+                    baseAcesso: ATENDIMENTO_DIRETO
+                    veterinarioNome: Dra. Ana Oliveira
+                  - id: b73d0a15-4c86-42e9-9f01-8d5b2c7e3a64
+                    dataHoraAcesso: "2026-10-14T14:35:18"
+                    contextoAcesso: Consulta de retorno
+                    baseAcesso: CONSENTIMENTO_REDE
+                    veterinarioNome: Dra. Ana Oliveira
+                totalElements: 2
+                totalPages: 1
+                number: 0
+                size: 20
+                first: true
+                last: true
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+
+  # ══════════════════════════════════════════
+  # PRONTUÁRIO (RN-063, RN-088, RN-089)
+  # ══════════════════════════════════════════
+  /animais/{animalId}/prontuario:
+    post:
+      tags: [Prontuário]
+      summary: Criar o prontuário original do animal
+      description: |
+        **RN-063** — o prontuário pertence ao animal, não ao veterinário nem à clínica.
+
+        Só pode criar quem é `VETERINARIO` **e** tem vínculo clínico com o animal
+        (gate da Colmeia — RN-064). Existe **um único** prontuário original por animal:
+        a segunda tentativa devolve `409`; a partir daí, use `/correcoes`.
+
+        Gera log de acesso com contexto `Criação do prontuário` (RN-067).
+      parameters:
+        - name: animalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 9a1c7f52-4b6d-4f0e-8f31-2c6a5d7e1b04
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProntuarioRequest'
+            example:
+              conteudoClinico: |
+                Anamnese: claudicação em MPE há 3 dias, sem trauma relatado.
+                Exame físico: dor à extensão do quadril esquerdo; FC 92 bpm; T 38,6 °C.
+                Conduta: radiografia de quadril e anti-inflamatório por 5 dias.
+      responses:
+        '201':
+          description: Prontuário criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProntuarioResponse'
+              example:
+                id: 8c5f1d29-7a34-4e6b-91c0-2d8b4f7a3e15
+                conteudoClinico: "Anamnese: claudicação em MPE há 3 dias..."
+                dataUltimaAtualizacao: "2026-10-14"
+                original: true
+                dataHoraCorrecao: null
+                crmvSolicitanteCorrecao: null
+                justificativaCorrecao: null
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          description: Não é veterinário, ou não tem vínculo clínico com o animal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: Somente veterinários podem escrever no prontuário
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          description: Animal já possui prontuário
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: Este animal já possui um prontuário — use a correção para atualizá-lo
+
+    get:
+      tags: [Prontuário]
+      summary: Ler o prontuário completo (original + correções)
+      description: |
+        Devolve a lista em ordem cronológica: o original na posição 0, seguido de cada
+        correção. **RN-088** — o original nunca é sobrescrito, então ele sempre aparece.
+
+        **Tutor dono** — leitura livre, sem log.
+        **Veterinário** — exige vínculo clínico (RN-064) e grava log com contexto
+        `Leitura do prontuário` (RN-067).
+      parameters:
+        - name: animalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 9a1c7f52-4b6d-4f0e-8f31-2c6a5d7e1b04
+      responses:
+        '200':
+          description: Histórico do prontuário
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProntuarioResponse'
+              example:
+                - id: 8c5f1d29-7a34-4e6b-91c0-2d8b4f7a3e15
+                  conteudoClinico: "Conduta: radiografia de quadril e anti-inflamatório por 5 dias."
+                  dataUltimaAtualizacao: "2026-10-14"
+                  original: true
+                  dataHoraCorrecao: null
+                  crmvSolicitanteCorrecao: null
+                  justificativaCorrecao: null
+                - id: 4b7e0a63-1c58-49d2-8f36-5a9d2e1c7b40
+                  conteudoClinico: "Conduta: radiografia de quadril e anti-inflamatório por 7 dias (corrigido)."
+                  dataUltimaAtualizacao: "2026-10-16"
+                  original: false
+                  dataHoraCorrecao: "2026-10-16T08:22:31"
+                  crmvSolicitanteCorrecao: SP-98765
+                  justificativaCorrecao: Ajuste de posologia após revisão do laudo radiográfico.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+        '404':
+          description: Animal inexistente ou ainda sem prontuário
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: "Animal ainda não possui prontuário: 9a1c7f52-4b6d-4f0e-8f31-2c6a5d7e1b04"
+
+  /animais/{animalId}/prontuario/correcoes:
+    post:
+      tags: [Prontuário]
+      summary: Corrigir o prontuário (nova versão vinculada à original)
+      description: |
+        **RN-088** — a correção **nunca** sobrescreve: cria uma nova linha apontando
+        para o prontuário original, carimbada com data, hora e o CRMV de quem corrigiu.
+        Ambas as versões continuam visíveis em `GET /animais/{animalId}/prontuario`.
+
+        **RN-089** — fora da janela de 24h da criação do original, `justificativa` é
+        **obrigatória**; sem ela a API responde `409`. Dentro da janela, a justificativa
+        enviada é descartada.
+
+        Requer `VETERINARIO` com vínculo clínico (RN-064) e gera log de acesso (RN-067).
+      parameters:
+        - name: animalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 9a1c7f52-4b6d-4f0e-8f31-2c6a5d7e1b04
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProntuarioCorrecaoRequest'
+            examples:
+              dentro_24h:
+                summary: Dentro da janela de 24h — justificativa dispensada (RN-088)
+                value:
+                  conteudoClinico: "Conduta: radiografia de quadril e anti-inflamatório por 7 dias (corrigido)."
+              fora_24h:
+                summary: Fora da janela de 24h — justificativa obrigatória (RN-089)
+                value:
+                  conteudoClinico: "Conduta: radiografia de quadril e anti-inflamatório por 7 dias (corrigido)."
+                  justificativa: Ajuste de posologia após revisão do laudo radiográfico.
+      responses:
+        '201':
+          description: Correção registrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProntuarioResponse'
+              example:
+                id: 4b7e0a63-1c58-49d2-8f36-5a9d2e1c7b40
+                conteudoClinico: "Conduta: radiografia de quadril e anti-inflamatório por 7 dias (corrigido)."
+                dataUltimaAtualizacao: "2026-10-16"
+                original: false
+                dataHoraCorrecao: "2026-10-16T08:22:31"
+                crmvSolicitanteCorrecao: SP-98765
+                justificativaCorrecao: Ajuste de posologia após revisão do laudo radiográfico.
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+        '404':
+          description: Animal inexistente ou ainda sem prontuário
+        '409':
+          description: Correção fora da janela de 24h sem justificativa (RN-089)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: Correção fora da janela de 24h da criação do prontuário original exige justificativa (RN-089)
+
+  # ══════════════════════════════════════════
+  # CONSULTAS (RN-003, RN-008, RN-012, RN-038)
+  # ══════════════════════════════════════════
+  /consultas:
+    post:
+      tags: [Consultas]
+      summary: Agendar consulta
+      description: |
+        **RN-003** — a consulta é atribuída diretamente ao veterinário escolhido
+        (não há clínica designando profissional no escopo do Java).
+
+        Somente `TUTOR`, e apenas para animal do próprio tutor. A consulta nasce
+        `AGENDADA`. `valor` é registro contábil: **não há pagamento** nesta API, então
+        RN-041 a RN-045 (reembolso) não se aplicam.
+
+        Agendar também cria o vínculo clínico que a Colmeia usa para liberar o histórico
+        ao vet (**RN-064**).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultaRequest'
+            example:
+              animalId: 9a1c7f52-4b6d-4f0e-8f31-2c6a5d7e1b04
+              veterinarioId: 3f8b1e90-2d47-4c6a-9b15-7e0d4a2c8f61
+              dataHora: "2026-10-14T14:30:00"
+              valor: 180.00
+              observacao: Thor está mancando da pata traseira esquerda há três dias.
+      responses:
+        '201':
+          description: Consulta agendada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultaResponse'
+              example:
+                id: c47d2a18-5e93-4b7f-a2d6-8b1f0e5c9d33
+                dataHora: "2026-10-14T14:30:00"
+                status: AGENDADA
+                valor: 180.00
+                observacao: Thor está mancando da pata traseira esquerda há três dias.
+                animalId: 9a1c7f52-4b6d-4f0e-8f31-2c6a5d7e1b04
+                animalNome: Thor
+                veterinarioId: 3f8b1e90-2d47-4c6a-9b15-7e0d4a2c8f61
+                veterinarioNome: Dra. Ana Oliveira
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          description: Não é tutor, ou o animal é de outro tutor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: Somente tutores podem agendar consultas
+        '404':
+          description: Animal ou veterinário inexistente
+
+    get:
+      tags: [Consultas]
+      summary: Listar consultas do usuário autenticado
+      description: |
+        Página de 10 registros, da mais recente para a mais antiga.
+        O recorte segue o papel: `TUTOR` vê as consultas dos seus animais;
+        `VETERINARIO` vê aquelas em que é o profissional designado.
+      parameters:
+        - $ref: '#/components/parameters/PageNumber'
+      responses:
+        '200':
+          description: Página de consultas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageConsultaResponse'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          description: Papel sem visão de agenda (ADMIN)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: Somente tutores ou veterinários podem listar consultas
+
+  /consultas/{id}:
+    get:
+      tags: [Consultas]
+      summary: Buscar consulta por ID
+      description: Visível ao tutor dono do animal e ao veterinário designado; qualquer outro recebe `403`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: c47d2a18-5e93-4b7f-a2d6-8b1f0e5c9d33
+      responses:
+        '200':
+          description: Consulta encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultaResponse'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+
+  /consultas/{id}/reagendar:
+    patch:
+      tags: [Consultas]
+      summary: Reagendar (tutor)
+      description: |
+        **RN-012** — o Responsável remarca pelo app. Só a partir de `AGENDADA`.
+        **RN-013 não se aplica**: não há pagamento a transferir no escopo Java,
+        a remarcação apenas troca a data.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: c47d2a18-5e93-4b7f-a2d6-8b1f0e5c9d33
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultaReagendarRequest'
+            example:
+              dataHora: "2026-10-21T09:00:00"
+      responses:
+        '200':
+          description: Consulta reagendada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultaResponse'
+              example:
+                id: c47d2a18-5e93-4b7f-a2d6-8b1f0e5c9d33
+                dataHora: "2026-10-21T09:00:00"
+                status: AGENDADA
+                valor: 180.00
+                observacao: Thor está mancando da pata traseira esquerda há três dias.
+                animalId: 9a1c7f52-4b6d-4f0e-8f31-2c6a5d7e1b04
+                animalNome: Thor
+                veterinarioId: 3f8b1e90-2d47-4c6a-9b15-7e0d4a2c8f61
+                veterinarioNome: Dra. Ana Oliveira
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          description: Consulta não está mais AGENDADA
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: Só é possível reagendar consultas com status AGENDADA
+
+  /consultas/{id}/cancelar:
+    patch:
+      tags: [Consultas]
+      summary: Cancelar (tutor)
+      description: |
+        **RN-012** — cancelamento pelo Responsável. `AGENDADA → CANCELADA`.
+        Sem cálculo de reembolso (RN-041 a RN-045 pressupõem Pagamento, fora do escopo Java).
+
+        Cancelar **derruba o vínculo clínico** da Colmeia: se essa era a única consulta
+        entre o vet e o animal, ele perde o acesso ao histórico (RN-064).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: c47d2a18-5e93-4b7f-a2d6-8b1f0e5c9d33
+      responses:
+        '200':
+          description: Consulta cancelada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultaResponse'
+              example:
+                id: c47d2a18-5e93-4b7f-a2d6-8b1f0e5c9d33
+                dataHora: "2026-10-14T14:30:00"
+                status: CANCELADA
+                valor: 180.00
+                observacao: Thor está mancando da pata traseira esquerda há três dias.
+                animalId: 9a1c7f52-4b6d-4f0e-8f31-2c6a5d7e1b04
+                animalNome: Thor
+                veterinarioId: 3f8b1e90-2d47-4c6a-9b15-7e0d4a2c8f61
+                veterinarioNome: Dra. Ana Oliveira
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          description: Transição inválida (consulta já saiu de AGENDADA)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: "Transição inválida: consulta está em REALIZADA, não é possível ir para CANCELADA"
+
+  /consultas/{id}/realizar:
+    patch:
+      tags: [Consultas]
+      summary: Marcar como realizada (veterinário)
+      description: |
+        **RN-008/RN-038** — o encerramento é ação do veterinário designado.
+        `AGENDADA → REALIZADA`. Sem IA acoplada (RN-078 a RN-085 são escopo `.NET`),
+        isso apenas fecha o registro do atendimento.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: c47d2a18-5e93-4b7f-a2d6-8b1f0e5c9d33
+      responses:
+        '200':
+          description: Consulta realizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultaResponse'
+              example:
+                id: c47d2a18-5e93-4b7f-a2d6-8b1f0e5c9d33
+                dataHora: "2026-10-14T14:30:00"
+                status: REALIZADA
+                valor: 180.00
+                observacao: Thor está mancando da pata traseira esquerda há três dias.
+                animalId: 9a1c7f52-4b6d-4f0e-8f31-2c6a5d7e1b04
+                animalNome: Thor
+                veterinarioId: 3f8b1e90-2d47-4c6a-9b15-7e0d4a2c8f61
+                veterinarioNome: Dra. Ana Oliveira
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          description: Não é o veterinário designado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: Somente o veterinário responsável pode realizar esta ação
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          description: Transição inválida
+
+  /consultas/{id}/nao-compareceu:
+    patch:
+      tags: [Consultas]
+      summary: Marcar não comparecimento (veterinário)
+      description: |
+        **RN-038** — estado terminal `no-show`. `AGENDADA → NAO_COMPARECEU`,
+        registrado pelo veterinário designado.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: c47d2a18-5e93-4b7f-a2d6-8b1f0e5c9d33
+      responses:
+        '200':
+          description: Não comparecimento registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultaResponse'
+              example:
+                id: c47d2a18-5e93-4b7f-a2d6-8b1f0e5c9d33
+                dataHora: "2026-10-14T14:30:00"
+                status: NAO_COMPARECEU
+                valor: 180.00
+                observacao: Thor está mancando da pata traseira esquerda há três dias.
+                animalId: 9a1c7f52-4b6d-4f0e-8f31-2c6a5d7e1b04
+                animalNome: Thor
+                veterinarioId: 3f8b1e90-2d47-4c6a-9b15-7e0d4a2c8f61
+                veterinarioNome: Dra. Ana Oliveira
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          description: Transição inválida
+
+  # ══════════════════════════════════════════
+  # EXAMES (RN-103, RN-104)
+  # ══════════════════════════════════════════
+  /consultas/{consultaId}/solicitacoes-exame:
+    post:
+      tags: [Exames]
+      summary: Solicitar exames na consulta
+      description: |
+        **RN-103** — o exame é solicitado dentro da plataforma e fica vinculado à
+        consulta e, por ela, ao histórico do animal.
+
+        Somente o veterinário **designado na consulta**. Cada consulta comporta **uma**
+        solicitação, com N itens; cada item nasce `SOLICITADO` e `liberadoResponsavel: false`.
+
+        A notificação de preparo ao Responsável não é enviada aqui — Notificações é
+        escopo do `.NET`; a orientação vai no campo `observacao`.
+      parameters:
+        - name: consultaId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: c47d2a18-5e93-4b7f-a2d6-8b1f0e5c9d33
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitacaoExameRequest'
+            example:
+              observacao: Jejum de 8 horas antes da coleta.
+              itens:
+                - nomeExame: Hemograma completo
+                - nomeExame: Radiografia de quadril
+      responses:
+        '201':
+          description: Solicitação criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolicitacaoExameResponse'
+              example:
+                id: e21b6c74-9f3a-4d18-b5e7-0c4a2f8d6b19
+                observacao: Jejum de 8 horas antes da coleta.
+                consultaId: c47d2a18-5e93-4b7f-a2d6-8b1f0e5c9d33
+                animalNome: Thor
+                veterinarioNome: Dra. Ana Oliveira
+                itens:
+                  - id: 5d90f3a1-8c24-4e7b-9a03-6f1d8b2e4c57
+                    nomeExame: Hemograma completo
+                    status: SOLICITADO
+                    dataSolicitacao: "2026-10-14"
+                    dataResultado: null
+                    descricaoResultado: null
+                    liberadoResponsavel: false
+                    dataLiberacaoResponsavel: null
+                    anexos: []
+                  - id: 9e0b5d34-7a16-42f8-b93c-1d5e8a0c6f27
+                    nomeExame: Radiografia de quadril
+                    status: SOLICITADO
+                    dataSolicitacao: "2026-10-14"
+                    dataResultado: null
+                    descricaoResultado: null
+                    liberadoResponsavel: false
+                    dataLiberacaoResponsavel: null
+                    anexos: []
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          description: Não é o veterinário da consulta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: Somente o veterinário da consulta pode solicitar exames
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          description: A consulta já tem uma solicitação de exame
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: Já existe uma solicitação de exame para esta consulta
+
+    get:
+      tags: [Exames]
+      summary: Ler a solicitação de exame da consulta
+      description: |
+        **RN-104** — a resposta é filtrada pelo papel:
+
+        - **Veterinário da consulta** — vê tudo, liberado ou não.
+        - **Tutor dono do animal** — vê os itens e seus status, mas
+          `descricaoResultado`, `dataResultado` e `anexos` só aparecem depois que o
+          vet libera o item (`liberadoResponsavel: true`). Antes disso vêm `null` e
+          lista vazia — o item existe, o resultado não é revelado.
+      parameters:
+        - name: consultaId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: c47d2a18-5e93-4b7f-a2d6-8b1f0e5c9d33
+      responses:
+        '200':
+          description: Solicitação encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolicitacaoExameResponse'
+              examples:
+                visao_veterinario:
+                  summary: Vet da consulta — resultado visível mesmo antes da liberação
+                  value:
+                    id: e21b6c74-9f3a-4d18-b5e7-0c4a2f8d6b19
+                    observacao: Jejum de 8 horas antes da coleta.
+                    consultaId: c47d2a18-5e93-4b7f-a2d6-8b1f0e5c9d33
+                    animalNome: Thor
+                    veterinarioNome: Dra. Ana Oliveira
+                    itens:
+                      - id: 5d90f3a1-8c24-4e7b-9a03-6f1d8b2e4c57
+                        nomeExame: Hemograma completo
+                        status: ANALISADO
+                        dataSolicitacao: "2026-10-14"
+                        dataResultado: "2026-10-15"
+                        descricaoResultado: Leucograma dentro da normalidade; leve anemia normocítica normocrômica.
+                        liberadoResponsavel: false
+                        dataLiberacaoResponsavel: null
+                        anexos:
+                          - id: 1a4e8c37-6b90-42d5-8e71-3f2c9d0a5b68
+                            urlArquivo: https://cdn.vetly.com.br/exames/thor-hemograma-2026-10-14.pdf
+                            mimeType: application/pdf
+                            dataUpload: "2026-10-15"
+                visao_tutor_nao_liberado:
+                  summary: Tutor, item ainda não liberado — resultado e anexos ocultos (RN-104)
+                  value:
+                    id: e21b6c74-9f3a-4d18-b5e7-0c4a2f8d6b19
+                    observacao: Jejum de 8 horas antes da coleta.
+                    consultaId: c47d2a18-5e93-4b7f-a2d6-8b1f0e5c9d33
+                    animalNome: Thor
+                    veterinarioNome: Dra. Ana Oliveira
+                    itens:
+                      - id: 5d90f3a1-8c24-4e7b-9a03-6f1d8b2e4c57
+                        nomeExame: Hemograma completo
+                        status: ANALISADO
+                        dataSolicitacao: "2026-10-14"
+                        dataResultado: null
+                        descricaoResultado: null
+                        liberadoResponsavel: false
+                        dataLiberacaoResponsavel: null
+                        anexos: []
+                visao_tutor_liberado:
+                  summary: Tutor, item liberado pelo vet — resultado e anexos visíveis
+                  value:
+                    id: e21b6c74-9f3a-4d18-b5e7-0c4a2f8d6b19
+                    observacao: Jejum de 8 horas antes da coleta.
+                    consultaId: c47d2a18-5e93-4b7f-a2d6-8b1f0e5c9d33
+                    animalNome: Thor
+                    veterinarioNome: Dra. Ana Oliveira
+                    itens:
+                      - id: 5d90f3a1-8c24-4e7b-9a03-6f1d8b2e4c57
+                        nomeExame: Hemograma completo
+                        status: RESULTADO_ENVIADO
+                        dataSolicitacao: "2026-10-14"
+                        dataResultado: "2026-10-15"
+                        descricaoResultado: Leucograma dentro da normalidade; leve anemia normocítica normocrômica.
+                        liberadoResponsavel: true
+                        dataLiberacaoResponsavel: "2026-10-16"
+                        anexos:
+                          - id: 1a4e8c37-6b90-42d5-8e71-3f2c9d0a5b68
+                            urlArquivo: https://cdn.vetly.com.br/exames/thor-hemograma-2026-10-14.pdf
+                            mimeType: application/pdf
+                            dataUpload: "2026-10-15"
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+        '404':
+          description: Consulta inexistente ou sem solicitação de exame
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: "Consulta não possui solicitação de exame: c47d2a18-5e93-4b7f-a2d6-8b1f0e5c9d33"
+
+  /solicitacoes-exame/itens/{itemId}/resultado:
+    patch:
+      tags: [Exames]
+      summary: Registrar o resultado de um item
+      description: |
+        **RN-104 (parte 1)** — o vet lança o laudo. Aceito a partir de `SOLICITADO`
+        ou `AGUARDANDO_RESULTADO`; o item passa a `ANALISADO` e recebe
+        `dataResultado`/`dataAnalise` de hoje.
+
+        Registrar **não** revela nada ao tutor — para isso é preciso liberar (`/liberar`).
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 5d90f3a1-8c24-4e7b-9a03-6f1d8b2e4c57
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResultadoExameRequest'
+            example:
+              descricaoResultado: Leucograma dentro da normalidade; leve anemia normocítica normocrômica.
+      responses:
+        '200':
+          description: Resultado registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolicitacaoExameItemResponse'
+              example:
+                id: 5d90f3a1-8c24-4e7b-9a03-6f1d8b2e4c57
+                nomeExame: Hemograma completo
+                status: ANALISADO
+                dataSolicitacao: "2026-10-14"
+                dataResultado: "2026-10-15"
+                descricaoResultado: Leucograma dentro da normalidade; leve anemia normocítica normocrômica.
+                liberadoResponsavel: false
+                dataLiberacaoResponsavel: null
+                anexos: []
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          description: Item de uma consulta de outro veterinário
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: Exame não pertence a uma consulta do veterinário autenticado
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          description: Status incompatível
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: "Só é possível registrar resultado a partir de SOLICITADO ou AGUARDANDO_RESULTADO — status atual: RESULTADO_ENVIADO"
+
+  /solicitacoes-exame/itens/{itemId}/anexos:
+    post:
+      tags: [Exames]
+      summary: Anexar arquivo de resultado
+      description: |
+        **RN-104 (parte 2)** — o laudo em arquivo. A API guarda **a URL**, não o binário:
+        hospede o PDF/imagem antes e informe `urlArquivo` + `mimeType`.
+
+        Somente o vet da consulta. Os anexos seguem a mesma regra de visibilidade do
+        resultado: o tutor só os enxerga depois da liberação.
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 5d90f3a1-8c24-4e7b-9a03-6f1d8b2e4c57
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnexoExameRequest'
+            example:
+              urlArquivo: https://cdn.vetly.com.br/exames/thor-hemograma-2026-10-14.pdf
+              mimeType: application/pdf
+      responses:
+        '201':
+          description: Anexo registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnexoExameResponse'
+              example:
+                id: 1a4e8c37-6b90-42d5-8e71-3f2c9d0a5b68
+                urlArquivo: https://cdn.vetly.com.br/exames/thor-hemograma-2026-10-14.pdf
+                mimeType: application/pdf
+                dataUpload: "2026-10-15"
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+
+  /solicitacoes-exame/itens/{itemId}/liberar:
+    patch:
+      tags: [Exames]
+      summary: Liberar o resultado ao Responsável
+      description: |
+        **RN-104 (parte 3)** — o resultado só chega ao Responsável **após liberação
+        explícita do veterinário**. Este é o único ponto que torna laudo e anexos
+        visíveis ao tutor.
+
+        Exige o item em `ANALISADO` (ou seja, com resultado já registrado); grava
+        `liberadoResponsavel: true` + `dataLiberacaoResponsavel` e move o status para
+        `RESULTADO_ENVIADO` — que aqui significa **liberado ao Responsável**.
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 5d90f3a1-8c24-4e7b-9a03-6f1d8b2e4c57
+      responses:
+        '200':
+          description: Item liberado ao Responsável
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolicitacaoExameItemResponse'
+              example:
+                id: 5d90f3a1-8c24-4e7b-9a03-6f1d8b2e4c57
+                nomeExame: Hemograma completo
+                status: RESULTADO_ENVIADO
+                dataSolicitacao: "2026-10-14"
+                dataResultado: "2026-10-15"
+                descricaoResultado: Leucograma dentro da normalidade; leve anemia normocítica normocrômica.
+                liberadoResponsavel: true
+                dataLiberacaoResponsavel: "2026-10-16"
+                anexos:
+                  - id: 1a4e8c37-6b90-42d5-8e71-3f2c9d0a5b68
+                    urlArquivo: https://cdn.vetly.com.br/exames/thor-hemograma-2026-10-14.pdf
+                    mimeType: application/pdf
+                    dataUpload: "2026-10-15"
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          description: Item ainda não analisado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: "Só é possível liberar ao Responsável um exame já ANALISADO — status atual: SOLICITADO"
+
+  /solicitacoes-exame/itens/{itemId}/cancelar:
+    patch:
+      tags: [Exames]
+      summary: Cancelar um item de exame
+      description: |
+        Somente o vet da consulta. Não é possível cancelar item já liberado
+        (`RESULTADO_ENVIADO`) nem já cancelado — resultado divulgado ao Responsável
+        não se desfaz.
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 9e0b5d34-7a16-42f8-b93c-1d5e8a0c6f27
+      responses:
+        '200':
+          description: Item cancelado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolicitacaoExameItemResponse'
+              example:
+                id: 9e0b5d34-7a16-42f8-b93c-1d5e8a0c6f27
+                nomeExame: Radiografia de quadril
+                status: CANCELADO
+                dataSolicitacao: "2026-10-14"
+                dataResultado: null
+                descricaoResultado: null
+                liberadoResponsavel: false
+                dataLiberacaoResponsavel: null
+                anexos: []
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          description: Item já liberado ou já cancelado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                error: "Não é possível cancelar um exame já enviado ou já cancelado — status atual: RESULTADO_ENVIADO"
