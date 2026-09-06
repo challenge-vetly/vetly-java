@@ -3,6 +3,7 @@ package com.vetly.vetly_java.model;
 import jakarta.persistence.*;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,12 +38,22 @@ public class SolicitacaoExameItem {
     @Column(name = "DT_ENVIO_RESULTADO")
     private LocalDate dataEnvioResultado;
 
+    @Column(name = "FL_LIBERADO_RESPONSAVEL", nullable = false, length = 1)
+    private String liberadoResponsavel;
+
+    @Column(name = "DT_LIBERACAO_RESPONSAVEL")
+    private LocalDate dataLiberacaoResponsavel;
+
     @ManyToOne
     @JoinColumn(name = "TB_SOLCT_EXAME_ID_SOLCT_EXAME", nullable = false)
     private SolicitacaoExame solicitacaoExame;
 
     @OneToMany(mappedBy = "solicitacaoExameItem", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<AnexoExame> anexos;
+
+    public SolicitacaoExameItem() {
+        this.anexos = new ArrayList<>();
+    }
 
     public SolicitacaoExameItem(UUID id, String nomeExame, StatusExame status, LocalDate dataSolicitacao, LocalDate dataResultado, String descricaoResultado, LocalDate dataAnalise, LocalDate dataEnvioResultado, SolicitacaoExame solicitacaoExame, List<AnexoExame> anexos) {
         this.id = id;
@@ -55,6 +66,7 @@ public class SolicitacaoExameItem {
         this.dataEnvioResultado = dataEnvioResultado;
         this.solicitacaoExame = solicitacaoExame;
         this.anexos = anexos;
+        this.liberadoResponsavel = "N";
     }
 
     public UUID getId() {
@@ -135,5 +147,21 @@ public class SolicitacaoExameItem {
 
     public void setAnexos(List<AnexoExame> anexos) {
         this.anexos = anexos;
+    }
+
+    public boolean isLiberadoResponsavel() {
+        return "S".equals(liberadoResponsavel);
+    }
+
+    public void setLiberadoResponsavel(String liberadoResponsavel) {
+        this.liberadoResponsavel = liberadoResponsavel;
+    }
+
+    public LocalDate getDataLiberacaoResponsavel() {
+        return dataLiberacaoResponsavel;
+    }
+
+    public void setDataLiberacaoResponsavel(LocalDate dataLiberacaoResponsavel) {
+        this.dataLiberacaoResponsavel = dataLiberacaoResponsavel;
     }
 }

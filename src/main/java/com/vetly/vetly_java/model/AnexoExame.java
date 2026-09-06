@@ -27,6 +27,9 @@ public class AnexoExame {
     @JoinColumn(name = "TB_SLC_EX_ITEM_ID_SLC_EX_ITEM")
     private SolicitacaoExameItem solicitacaoExameItem;
 
+    public AnexoExame() {
+    }
+
     public AnexoExame(UUID id, String urlArquivo, String mimeType, LocalDate dataUpload, SolicitacaoExameItem solicitacaoExameItem) {
         this.id = id;
         this.urlArquivo = urlArquivo;
