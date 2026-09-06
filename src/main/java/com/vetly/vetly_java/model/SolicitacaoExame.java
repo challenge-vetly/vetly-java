@@ -24,6 +24,9 @@ public class SolicitacaoExame {
     @OneToMany(mappedBy = "solicitacaoExame", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SolicitacaoExameItem> itens;
 
+    public SolicitacaoExame() {
+    }
+
     public SolicitacaoExame(UUID id, String observacao, Consulta consulta, List<SolicitacaoExameItem> itens) {
         this.id = id;
         this.observacao = observacao;
